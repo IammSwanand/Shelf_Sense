@@ -1,15 +1,8 @@
 """
-Detector Service — Flask microservice wrapping YOLO11s (SKU-110K weights)
-with a 4-level fallback chain so the pipeline never hard-crashes.
-
-Fallback order:
-  1. Custom SKU-110K YOLO11s weights (best.pt)  → model_used: "custom-sku110k-yolo11s"
-  2. HuggingFace shelf-tuned YOLOv8             → model_used: "shelf-yolov8"
-  3. Generic COCO YOLOv8n                       → model_used: "generic-yolov8"
-  4. Classical CV contour proposals              → model_used: "classical-cv"
+Detector Service — Flask microservice wrapping YOLO11-s640 (SKU-110K weights).
 
 Environment variables (all optional, have defaults):
-  DETECTOR_WEIGHTS_PATH   Path to custom weights  (default: /app/weights/best.pt)
+  DETECTOR_WEIGHTS_PATH   Path to YOLO weights    (default: /app/weights/best.pt)
   DET_CONF_THRESHOLD      YOLO conf threshold     (default: 0.25)
   DET_IOU_THRESHOLD       YOLO NMS IoU threshold  (default: 0.45)
   DET_IMG_SIZE            Inference resolution    (default: 640)
@@ -30,83 +23,67 @@ log = logging.getLogger(__name__)
 app = Flask(__name__)
 
 # ── Config from environment ───────────────────────────────────────────────────
-WEIGHTS_PATH    = os.environ.get("DETECTOR_WEIGHTS_PATH", "/app/weights/best.pt")
 CONF_THRESHOLD  = float(os.environ.get("DET_CONF_THRESHOLD", "0.25"))
 IOU_THRESHOLD   = float(os.environ.get("DET_IOU_THRESHOLD", "0.45"))
 IMG_SIZE        = int(os.environ.get("DET_IMG_SIZE", "640"))
 PORT            = int(os.environ.get("PORT", "5001"))
 
+# ── Device selection (auto GPU, fall back to CPU, or override via DEVICE env) ─
+import torch as _torch
+
+
+def _get_device():
+    env_dev = os.environ.get("DEVICE", "auto").strip().lower()
+    if env_dev == "cpu":
+        return "cpu"
+    if env_dev in ("cuda", "gpu"):
+        return 0 if _torch.cuda.is_available() else "cpu"
+    if env_dev.isdigit():
+        return int(env_dev) if _torch.cuda.is_available() else "cpu"
+    # Default auto-detect
+    return 0 if _torch.cuda.is_available() else "cpu"
+
+
+DEVICE = _get_device()
+
 # ── Model singleton (loaded once at startup) ──────────────────────────────────
-_model      = None   # YOLO model object, or None for classical-cv
-_model_used = None   # string label for the API response
+_model      = None   # YOLO model object
+_model_used = "sku110k-yolo11-s640"
 
 
-def _try_load_custom() -> bool:
-    """Level 1: custom SKU-110K YOLO11s weights."""
-    global _model, _model_used
-    try:
-        if not os.path.exists(WEIGHTS_PATH):
-            log.warning(f"Custom weights not found at {WEIGHTS_PATH}.")
-            return False
-        from ultralytics import YOLO
-        log.info(f"Loading custom weights from {WEIGHTS_PATH} ...")
-        _model = YOLO(WEIGHTS_PATH)
-        _model_used = "custom-sku110k-yolov8s"  # API_SPEC.md §2 mandated string
-        log.info("✓ Custom SKU-110K YOLO11s loaded.")
-        return True
-    except Exception as e:
-        log.warning(f"Custom weights failed: {e}")
-        return False
-
-
-def _try_load_hf_shelf() -> bool:
-    """Level 2: HuggingFace shelf-tuned YOLOv8."""
-    global _model, _model_used
-    try:
-        from huggingface_hub import hf_hub_download
-        from ultralytics import YOLO
-        log.info("Downloading shelf YOLOv8 from HuggingFace ...")
-        hf_path = hf_hub_download(
-            repo_id="foduucom/product-detection-in-shelf-yolov8",
-            filename="best.pt",
-        )
-        _model = YOLO(hf_path)
-        _model_used = "shelf-yolov8"
-        log.info("✓ HuggingFace shelf YOLOv8 loaded.")
-        return True
-    except Exception as e:
-        log.warning(f"HuggingFace shelf model failed: {e}")
-        return False
-
-
-def _try_load_generic_yolo() -> bool:
-    """Level 3: Generic COCO YOLOv8n."""
-    global _model, _model_used
-    try:
-        from ultralytics import YOLO
-        log.info("Loading generic YOLOv8n (COCO pretrained) ...")
-        _model = YOLO("yolov8n.pt")
-        _model_used = "generic-yolov8"
-        log.info("✓ Generic YOLOv8n loaded.")
-        return True
-    except Exception as e:
-        log.warning(f"Generic YOLOv8n failed: {e}")
-        return False
+def _find_weights_path() -> str:
+    """Find the YOLO11-s640 weight file across common locations."""
+    candidate_paths = [
+        os.environ.get("DETECTOR_WEIGHTS_PATH"),
+        "/app/weights/best.pt",
+        "/app/weights/sku110k-yolo11-s640.pt",
+        os.path.join(os.path.dirname(__file__), "weights", "best.pt"),
+        os.path.join(os.path.dirname(__file__), "weights", "sku110k-yolo11-s640.pt"),
+        os.path.join(os.path.dirname(__file__), "..", "..", "sku110k-yolo11-s640.pt"),
+        os.path.join(os.path.dirname(__file__), "..", "sku110k-yolo11-s640.pt"),
+        "sku110k-yolo11-s640.pt",
+    ]
+    for path in candidate_paths:
+        if path and os.path.exists(path):
+            return os.path.abspath(path)
+    return os.environ.get("DETECTOR_WEIGHTS_PATH", "/app/weights/best.pt")
 
 
 def _load_model():
-    """Walk the fallback chain until one level succeeds."""
-    global _model, _model_used
-    if _try_load_custom():
-        return
-    if _try_load_hf_shelf():
-        return
-    if _try_load_generic_yolo():
-        return
-    # Level 4 — classical CV always works (no weights needed)
-    _model = None
-    _model_used = "classical-cv"
-    log.info("✓ Using classical CV contour detector (final fallback).")
+    """Load YOLO11-s640 SKU-110K model."""
+    global _model
+    from ultralytics import YOLO
+
+    weights_path = _find_weights_path()
+    if not os.path.exists(weights_path):
+        raise FileNotFoundError(
+            f"YOLO11-s640 weights not found at '{weights_path}'. "
+            f"Please ensure the weights file is present."
+        )
+
+    log.info(f"Loading YOLO11-s640 weights from {weights_path} on {DEVICE} ...")
+    _model = YOLO(weights_path)
+    log.info("YOLO11-s640 model loaded successfully.")
 
 
 def _run_yolo(image_base64: str) -> tuple[list[dict], int, int]:
@@ -120,6 +97,7 @@ def _run_yolo(image_base64: str) -> tuple[list[dict], int, int]:
         imgsz=IMG_SIZE,
         conf=CONF_THRESHOLD,
         iou=IOU_THRESHOLD,
+        device=DEVICE,
         verbose=False,
     )
     result = results[0]
@@ -136,7 +114,10 @@ def _run_yolo(image_base64: str) -> tuple[list[dict], int, int]:
 
 
 # Load at import time (gunicorn worker startup)
-_load_model()
+try:
+    _load_model()
+except Exception as err:
+    log.error(f"Failed to load YOLO11-s640 model: {err}")
 
 
 # ── Endpoints ─────────────────────────────────────────────────────────────────
@@ -145,7 +126,7 @@ def health():
     # API_SPEC.md §2: exactly {"status": "ok", "model_loaded": true}
     return jsonify({
         "status":       "ok",
-        "model_loaded": _model_used is not None,
+        "model_loaded": _model is not None,
     }), 200
 
 
@@ -154,6 +135,9 @@ def detect():
     data = request.get_json(silent=True)
     if not data or "image_base64" not in data:
         return jsonify({"error": "Missing required field: image_base64"}), 400
+
+    if _model is None:
+        return jsonify({"error": "Model not loaded. Please check weights file."}), 503
 
     image_base64 = data["image_base64"]
 
@@ -166,14 +150,7 @@ def detect():
         return jsonify({"error": f"Invalid image_base64: {e}"}), 400
 
     try:
-        if _model_used == "classical-cv":
-            import classical_detector
-            detections, width, height = classical_detector.detect(
-                image_base64, conf_threshold=CONF_THRESHOLD
-            )
-        else:
-            detections, width, height = _run_yolo(image_base64)
-
+        detections, width, height = _run_yolo(image_base64)
         return jsonify({
             "width":      width,
             "height":     height,

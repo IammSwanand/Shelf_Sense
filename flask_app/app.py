@@ -42,12 +42,24 @@ PORT               = int(os.environ.get("PORT", "5000"))
 OUTPUTS_DIR        = Path(os.environ.get("OUTPUTS_DIR",  "/app/outputs"))
 OUTPUTS_DIR.mkdir(parents=True, exist_ok=True)
 
-# ── Colour palette (16 colours, mod-indexed so it never runs out) ─────────────
+# ── Colour palette (high-contrast vibrant colors per brand group) ────────────
 _PALETTE = [
-    "#E63946", "#F4A261", "#2A9D8F", "#457B9D", "#E9C46A",
-    "#6A0572", "#38B000", "#FF6B6B", "#48CAE4", "#F77F00",
-    "#8338EC", "#06D6A0", "#FFBE0B", "#FB5607", "#3A86FF",
-    "#FF006E",
+    "#2563EB",  # Royal Blue
+    "#10B981",  # Emerald Green
+    "#F59E0B",  # Amber
+    "#EF4444",  # Red
+    "#8B5CF6",  # Purple
+    "#06B6D4",  # Cyan
+    "#EC4899",  # Pink
+    "#84CC16",  # Lime
+    "#F97316",  # Orange
+    "#6366F1",  # Indigo
+    "#14B8A6",  # Teal
+    "#D946EF",  # Fuchsia
+    "#3B82F6",  # Sky Blue
+    "#E11D48",  # Rose
+    "#EAB308",  # Yellow
+    "#64748B",  # Slate
 ]
 
 
@@ -122,55 +134,57 @@ def _draw_visualization(
     image_id: str,
 ) -> str:
     """
-    Draw colour-coded bounding boxes (one colour per group_id) on the image.
+    Draw clean, high-contrast bounding box outlines (one colour per brand group)
+    without opaque interior fills so products remain completely visible.
     Saves the result as JPEG to OUTPUTS_DIR.
-    Returns the filename (not a full path — served via /outputs/<filename>).
     """
     draw = ImageDraw.Draw(image)
 
-    # Stroke thickness: adaptive to image size so it's always visible
+    # Adaptive stroke & font sizing based on image resolution
     img_w, img_h = image.size
-    stroke = max(3, img_w // 300)  # e.g. 4px for 1080px wide, 7px for 2160px
-    font_size = max(16, img_w // 60)
+    stroke = max(2, img_w // 400)
+    font_size = max(13, img_w // 75)
     try:
         font = ImageFont.truetype("arial.ttf", size=font_size)
     except Exception:
         font = ImageFont.load_default()
 
     for item in groups:
-        gid  = item["group_id"]
-        box  = item["box"]
+        gid = item.get("group_id", 0)
+        box = item["box"]
         color_hex = _PALETTE[gid % len(_PALETTE)]
         color_rgb = _hex_to_rgb(color_hex)
-        # Semi-transparent fill colour (20% alpha equivalent via blend)
-        fill_rgb  = tuple(int(c * 0.15 + 255 * 0.85) for c in color_rgb)
 
-        x1, y1, x2, y2 = [int(v) for v in box]
+        x1, y1, x2, y2 = [int(round(v)) for v in box]
 
-        # Subtle fill
-        draw.rectangle([x1, y1, x2, y2], fill=fill_rgb)
+        # Draw clean, crisp outline (NO interior fill so product is 100% visible)
+        draw.rectangle([x1, y1, x2, y2], outline=color_rgb, width=stroke)
 
-        # Thick outline — draw multiple concentric rectangles
-        for offset in range(stroke):
-            draw.rectangle(
-                [x1 - offset, y1 - offset, x2 + offset, y2 + offset],
-                outline=color_rgb,
-            )
-
-        label = f"G{gid}"
-        # Label background
+        label = f"Group {gid}"
         try:
-            bbox = draw.textbbox((x1, y1), label, font=font)
+            bbox = draw.textbbox((0, 0), label, font=font)
             lw, lh = bbox[2] - bbox[0], bbox[3] - bbox[1]
         except AttributeError:
-            lw, lh = len(label) * 9, 14
-        pad = 4
-        draw.rectangle([x1, y1 - lh - pad * 2, x1 + lw + pad * 2, y1], fill=color_rgb)
-        draw.text((x1 + pad, y1 - lh - pad), label, fill=(255, 255, 255), font=font)
+            lw, lh = len(label) * 8, font_size
+
+        pad = 3
+        badge_top = y1 - lh - (pad * 2)
+        badge_bottom = y1
+
+        # Keep badge within image bounds
+        if badge_top < 0:
+            badge_top = y1
+            badge_bottom = y1 + lh + (pad * 2)
+            text_y = badge_top + pad
+        else:
+            text_y = badge_top + pad
+
+        draw.rectangle([x1, badge_top, x1 + lw + (pad * 2), badge_bottom], fill=color_rgb)
+        draw.text((x1 + pad, text_y), label, fill=(255, 255, 255), font=font)
 
     filename = f"{image_id}_viz.jpg"
     save_path = OUTPUTS_DIR / filename
-    image.save(save_path, "JPEG", quality=90)
+    image.save(save_path, "JPEG", quality=92)
     log.info(f"Visualization saved: {save_path}")
     return filename
 

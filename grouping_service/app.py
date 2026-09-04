@@ -1,19 +1,23 @@
 """
 Grouping Service — Flask microservice that assigns brand group IDs
-to detected product crops using DINOv2 embeddings + DBSCAN clustering.
+to detected product crops using DINOv2 embeddings + HSV Color Histograms
+fused into an Agglomerative Clustering (Average Linkage) model.
 
 Pipeline per request:
   1. Decode full image from base64
-  2. For each detection box: crop → resize 224×224 → DINOv2 CLS embedding
-  3. L2-normalise all embeddings → cosine-distance DBSCAN
-  4. Return group_id per detection (1:1 order-preserving with input)
+  2. For each detection box: crop with padding
+  3. Extract DINOv2 ViT-S/14 CLS embeddings (semantic / typography features)
+  4. Extract 3D HSV Color Histograms (color palette distribution)
+  5. Compute weighted multimodal distance matrix:
+       D_fused = (DINO_WEIGHT * D_dino) + (COLOR_WEIGHT * D_color)
+  6. Cluster via Agglomerative Clustering (Average Linkage, CLUSTER_THRESHOLD)
+  7. Return group_id per detection (1:1 order-preserving with input)
 
 Environment variables:
-  DBSCAN_EPS          Cosine-distance neighbourhood radius  (default: 0.45)
-                      Calibrated from real shelf images: median pairwise cosine
-                      distance is ~0.42, so 0.45 groups ~60% of pairs.
-  DBSCAN_MIN_SAMPLES  Min samples per cluster               (default: 1)
-  PORT                Service port                          (default: 5002)
+  CLUSTER_THRESHOLD   Cosine distance threshold for Agglomerative clustering (default: 0.35)
+  DINO_WEIGHT         Weight for DINOv2 visual embeddings                    (default: 0.70)
+  COLOR_WEIGHT        Weight for HSV color histograms                        (default: 0.30)
+  PORT                Service port                                           (default: 5002)
 """
 
 import os
@@ -31,16 +35,31 @@ log = logging.getLogger(__name__)
 app = Flask(__name__)
 
 # ── Config ────────────────────────────────────────────────────────────────────
-DBSCAN_EPS         = float(os.environ.get("DBSCAN_EPS", "0.45"))  # calibrated: median dist ~0.42
-DBSCAN_MIN_SAMPLES = int(os.environ.get("DBSCAN_MIN_SAMPLES", "1"))
-PORT               = int(os.environ.get("PORT", "5002"))
+CLUSTER_THRESHOLD = float(os.environ.get("CLUSTER_THRESHOLD", "0.35"))
+DINO_WEIGHT       = float(os.environ.get("DINO_WEIGHT", "0.70"))
+COLOR_WEIGHT      = float(os.environ.get("COLOR_WEIGHT", "0.30"))
+PORT              = int(os.environ.get("PORT", "5002"))
 
 # Padding added around each crop (pixels in original image space)
 CROP_PAD = 5
 
-# ── Device selection (auto GPU, fall back to CPU) ─────────────────────────────
+# ── Device selection (auto GPU, fall back to CPU, or override via DEVICE env) ─
 import torch as _torch
-DEVICE = _torch.device("cuda" if _torch.cuda.is_available() else "cpu")
+
+
+def _get_device() -> _torch.device:
+    env_dev = os.environ.get("DEVICE", "auto").strip().lower()
+    if env_dev == "cpu":
+        return _torch.device("cpu")
+    if env_dev in ("cuda", "gpu"):
+        return _torch.device("cuda" if _torch.cuda.is_available() else "cpu")
+    if env_dev.isdigit():
+        return _torch.device(f"cuda:{env_dev}" if _torch.cuda.is_available() else "cpu")
+    # Default auto-detect
+    return _torch.device("cuda" if _torch.cuda.is_available() else "cpu")
+
+
+DEVICE = _get_device()
 
 # ── DINOv2 model singleton ────────────────────────────────────────────────────
 _dino_model     = None
@@ -95,7 +114,6 @@ def _embed_crops(crops: list[Image.Image]) -> np.ndarray:
     """
     import torch
 
-    # Move inputs to the same device as the model
     inputs = _dino_processor(images=crops, return_tensors="pt")
     inputs = {k: v.to(DEVICE) for k, v in inputs.items()}
 
@@ -111,14 +129,45 @@ def _embed_crops(crops: list[Image.Image]) -> np.ndarray:
     return embeddings / norms
 
 
-def _cluster(embeddings: np.ndarray) -> list[int]:
+def _extract_color_histograms(crops: list[Image.Image], h_bins: int = 8, s_bins: int = 8, v_bins: int = 8) -> np.ndarray:
     """
-    DBSCAN over cosine distance matrix.
-    Noise points (label -1) are each assigned a unique singleton group id.
-    Returns list of int group_ids, length == len(embeddings).
+    Extract 3D HSV Color Histogram (h_bins x s_bins x v_bins = 512 bins) for each crop.
+    Returns float32 array of shape (N, 512), L2-normalised.
     """
-    from sklearn.cluster import DBSCAN
+    features = []
+    for crop in crops:
+        # Convert PIL image to HSV color space (H: 0..255, S: 0..255, V: 0..255)
+        hsv_arr = np.array(crop.convert("HSV"), dtype=np.uint8)
+        pixels = hsv_arr.reshape(-1, 3)
+        # Compute 3D joint histogram across H, S, V channels
+        hist, _ = np.histogramdd(
+            pixels,
+            bins=(h_bins, s_bins, v_bins),
+            range=((0, 256), (0, 256), (0, 256))
+        )
+        hist_flat = hist.flatten().astype(np.float32)
+        norm = np.linalg.norm(hist_flat)
+        if norm > 0:
+            hist_flat = hist_flat / norm
+        features.append(hist_flat)
+    return np.array(features, dtype=np.float32)
+
+
+def _cluster(
+    embeddings: np.ndarray,
+    color_features: np.ndarray = None,
+    threshold: float = None,
+    dino_weight: float = None,
+    color_weight: float = None,
+) -> list[int]:
+    """
+    Cluster products into brand groups using a weighted combination of:
+      1. DINOv2 visual semantic embedding (DINO_WEIGHT, default 0.70)
+      2. HSV 3D Color Histogram (COLOR_WEIGHT, default 0.30)
+    using Agglomerative Clustering with Average Linkage.
+    """
     from sklearn.metrics.pairwise import cosine_distances
+    from sklearn.cluster import AgglomerativeClustering
 
     n = len(embeddings)
     if n == 0:
@@ -126,23 +175,45 @@ def _cluster(embeddings: np.ndarray) -> list[int]:
     if n == 1:
         return [0]
 
-    dist_matrix = cosine_distances(embeddings)
-    labels = DBSCAN(
-        eps=DBSCAN_EPS,
-        min_samples=DBSCAN_MIN_SAMPLES,
-        metric="precomputed",
-    ).fit_predict(dist_matrix)
+    # Read dynamically configurable fusion weights
+    dino_w = float(dino_weight if dino_weight is not None else os.environ.get("DINO_WEIGHT", str(DINO_WEIGHT)))
+    color_w = float(color_weight if color_weight is not None else os.environ.get("COLOR_WEIGHT", str(COLOR_WEIGHT)))
 
-    # Remap noise (-1) to unique singleton ids beyond the max cluster id
-    max_label = int(labels.max()) if labels.max() >= 0 else -1
-    next_id = max_label + 1
-    group_ids = []
-    for lbl in labels:
-        if lbl == -1:
-            group_ids.append(next_id)
-            next_id += 1
+    # Compute DINOv2 cosine distance matrix
+    d_dino = cosine_distances(embeddings)
+    d_dino = np.clip(d_dino, 0.0, 2.0)
+
+    # Compute HSV color histogram distance matrix if available and weighted
+    if color_features is not None and color_w > 0:
+        d_color = cosine_distances(color_features)
+        d_color = np.clip(d_color, 0.0, 2.0)
+        
+        # Normalize weights so they sum to 1.0
+        total_w = dino_w + color_w
+        if total_w > 0:
+            dino_norm = dino_w / total_w
+            color_norm = color_w / total_w
         else:
-            group_ids.append(int(lbl))
+            dino_norm, color_norm = 1.0, 0.0
+
+        dist_matrix = (dino_norm * d_dino) + (color_norm * d_color)
+        log.info(f"Multimodal distance fusion: DINO={dino_norm:.2f} + Color={color_norm:.2f}")
+    else:
+        dist_matrix = d_dino
+
+    thresh = float(threshold if threshold is not None else os.environ.get("CLUSTER_THRESHOLD", str(CLUSTER_THRESHOLD)))
+    log.info(f"Clustering {n} products using Agglomerative (Average Linkage, threshold={thresh}) ...")
+    
+    model = AgglomerativeClustering(
+        n_clusters=None,
+        distance_threshold=thresh,
+        metric="precomputed",
+        linkage="average",
+    )
+    labels = model.fit_predict(dist_matrix)
+    group_ids = [int(lbl) for lbl in labels]
+    num_groups = len(set(group_ids))
+    log.info(f"✓ Agglomerative clustering produced {num_groups} brand groups.")
     return group_ids
 
 
@@ -174,13 +245,22 @@ def group():
         # 1. Crop each detected region
         crops = [_crop_with_padding(image, det["box"]) for det in detections]
 
-        # 2. Embed all crops in one batch
+        # 2. Extract DINOv2 visual embeddings
         embeddings = _embed_crops(crops)
 
-        # 3. Cluster embeddings → group_ids
-        group_ids = _cluster(embeddings)
+        # 3. Extract 3D HSV Color Histograms
+        color_features = _extract_color_histograms(crops)
 
-        # 4. Build response — 1:1 aligned with input detections
+        # 4. Cluster combined features → group_ids
+        group_ids = _cluster(
+            embeddings,
+            color_features,
+            threshold=data.get("threshold"),
+            dino_weight=data.get("dino_weight"),
+            color_weight=data.get("color_weight"),
+        )
+
+        # 5. Build response — 1:1 aligned with input detections
         groups = []
         for det, gid in zip(detections, group_ids):
             groups.append({

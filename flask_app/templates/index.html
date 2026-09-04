@@ -244,7 +244,8 @@
       loadingSec.classList.remove('hidden');
 
       setStep('step-detect');
-      document.getElementById('loading-sub').textContent = 'Running product detection...';
+      const stageEl = document.getElementById('loading-stage');
+      if (stageEl) stageEl.textContent = 'Running product detection...';
 
       const formData = new FormData();
       formData.append('image', selectedFile);

@@ -55,11 +55,11 @@ Edit `.env` to tune thresholds or timeouts. All values have sensible defaults.
 ## Running with Docker Compose (recommended)
 
 ```bash
-# Build images and start all 3 services
-docker-compose up --build
+# Build images and start all 3 services (auto-detects GPU if available, else runs on CPU)
+docker compose up --build
 
 # Or in detached mode
-docker-compose up --build -d
+docker compose up --build -d
 ```
 
 Services start in dependency order (detector + grouping must be healthy before Flask starts). The first run downloads DINOv2 weights (~80MB) for the grouping service.
@@ -82,7 +82,7 @@ curl -X POST http://localhost:5000/api/analyze \
 ### Stop
 
 ```bash
-docker-compose down
+docker compose down
 ```
 
 ---
@@ -146,8 +146,7 @@ infilect_pipeline/
 │   ├── requirements.txt
 │   └── Dockerfile
 ├── detector_service/
-│   ├── app.py              ← YOLO11s + 4-level fallback chain
-│   ├── classical_detector.py
+│   ├── app.py              ← YOLO11-s640 SKU-110K detector
 │   ├── weights/best.pt     ← place your weights here (not in git)
 │   ├── requirements.txt
 │   └── Dockerfile
@@ -186,7 +185,8 @@ All thresholds are env-configurable — see `.env.example` for the full list. Ke
 
 | Variable | Default | Effect |
 |---|---|---|
+| `DEVICE` | `auto` | Auto-detects GPU if available, else falls back to CPU |
 | `DET_CONF_THRESHOLD` | `0.25` | YOLO detection confidence cutoff |
-| `DBSCAN_EPS` | `0.30` | Brand-cluster neighbourhood radius |
+| `DBSCAN_EPS` | `0.45` | Brand-cluster neighbourhood radius |
 | `RATECARD_MAX_ASPECT` | `2.5` | Rate-card geometry filter |
 | `RATECARD_DEBUG` | `false` | Attach `filter_reason` to dropped boxes |

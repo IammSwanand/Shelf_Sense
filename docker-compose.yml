@@ -1,8 +1,6 @@
-version: "3.9"
-
 services:
 
-  # ── Detector Service ────────────────────────────────────────────────────────
+  # ── Detector Service (YOLO11-s640 SKU-110K) ─────────────────────────────────
   detector:
     build:
       context: ./detector_service
@@ -13,12 +11,13 @@ services:
       - DET_CONF_THRESHOLD=${DET_CONF_THRESHOLD:-0.25}
       - DET_IOU_THRESHOLD=${DET_IOU_THRESHOLD:-0.45}
       - DET_IMG_SIZE=${DET_IMG_SIZE:-640}
+      - DEVICE=${DEVICE:-auto}
       - PORT=5001
     volumes:
-      # Mount weights read-only — NOT baked into the image
+      # Mount weights read-only — weights remain local, not baked into the image
       - ./detector_service/weights:/app/weights:ro
+      - ./detector_service/app.py:/app/app.py
     ports:
-      # Exposed for debug/smoke-testing only; Flask talks to detector internally
       - "5001:5001"
     healthcheck:
       test: ["CMD", "python", "-c",
@@ -29,16 +28,20 @@ services:
       start_period: 40s
     restart: unless-stopped
 
-  # ── Grouping Service ────────────────────────────────────────────────────────
+  # ── Grouping Service (DINOv2 + HSV Multimodal Agglomerative Clustering) ───
   grouping:
     build:
       context: ./grouping_service
       dockerfile: Dockerfile
     container_name: infilect_grouping
     environment:
-      - DBSCAN_EPS=${DBSCAN_EPS:-0.30}
-      - DBSCAN_MIN_SAMPLES=${DBSCAN_MIN_SAMPLES:-1}
+      - CLUSTER_THRESHOLD=${CLUSTER_THRESHOLD:-0.35}
+      - DINO_WEIGHT=${DINO_WEIGHT:-0.70}
+      - COLOR_WEIGHT=${COLOR_WEIGHT:-0.30}
+      - DEVICE=${DEVICE:-auto}
       - PORT=5002
+    volumes:
+      - ./grouping_service/app.py:/app/app.py
     ports:
       # Exposed for debug/smoke-testing only
       - "5002:5002"
@@ -70,6 +73,10 @@ services:
       - RATECARD_ROW_HEIGHT_RATIO=${RATECARD_ROW_HEIGHT_RATIO:-0.50}
       - RATECARD_DEBUG=${RATECARD_DEBUG:-false}
     volumes:
+      - ./flask_app/app.py:/app/app.py
+      - ./flask_app/filtering.py:/app/filtering.py
+      - ./flask_app/templates:/app/templates
+      - ./flask_app/static:/app/static
       # outputs/ is shared — Flask writes visualizations; only Flask serves them
       - outputs_vol:/app/outputs
     ports:
