@@ -1,0 +1,21 @@
+image,num_products,num_groups,num_filtered_ratecards,latency_ms,model_used,status
+128008.jpg,76,32,22,8178.0,custom-sku110k-yolov8s,OK
+2019-12-12T152726.jpg,35,9,0,5555.6,custom-sku110k-yolov8s,OK
+2024_01_16_1705382401636.jpg,25,6,0,5267.4,custom-sku110k-yolov8s,OK
+2024_01_16_1705384430514.jpg,46,6,0,5978.9,custom-sku110k-yolov8s,OK
+4140309_2023_03_20_17_17_05_1679312825,48,12,0,6308.9,custom-sku110k-yolov8s,OK
+6131_2021_11_15_13_00_45_1636961445290,67,46,0,6844.4,custom-sku110k-yolov8s,OK
+7277_1.jpg,53,34,2,6155.5,custom-sku110k-yolov8s,OK
+Good Quality-1993_8.jpg,242,67,0,13478.5,custom-sku110k-yolov8s,OK
+Good Quality-4140312_2023_02_22_14_47_,54,10,0,6391.2,custom-sku110k-yolov8s,OK
+Good Quality-7499_3.jpg,179,30,0,10805.9,custom-sku110k-yolov8s,OK
+IMG__2019-12-11_145604.jpg,148,42,0,9622.9,custom-sku110k-yolov8s,OK
+IMG__2019-12-11_164251.jpg,88,27,0,7394.3,custom-sku110k-yolov8s,OK
+observa_2023_11_02_07_16_47_1698909407,64,22,0,6836.5,custom-sku110k-yolov8s,OK
+seema.d_2022_04_03_10_50_02_1648963202,190,123,0,11811.2,custom-sku110k-yolov8s,OK
+seema.d_2022_04_03_10_50_14_1648963214,196,87,0,12078.4,custom-sku110k-yolov8s,OK
+Vitaly.Okhonya_2020_11_26_10_33_27_160,54,4,0,6552.7,custom-sku110k-yolov8s,OK
+Vitaly.Okhonya_2020_11_26_10_33_39_160,124,13,0,9282.3,custom-sku110k-yolov8s,OK
+Vitaly.Okhonya_2020_11_26_10_34_25_160,25,5,0,5491.8,custom-sku110k-yolov8s,OK
+Vitaly.Okhonya_2020_11_30_11_59_32_160,42,3,0,5963.6,custom-sku110k-yolov8s,OK
+Vitaly.Okhonya_2020_11_30_11_59_43_160,45,7,0,6042.7,custom-sku110k-yolov8s,OK

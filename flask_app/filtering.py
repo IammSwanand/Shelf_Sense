@@ -42,7 +42,10 @@ MAX_ASPECT         = float(os.environ.get("RATECARD_MAX_ASPECT",          "2.5")
 MAX_HEIGHT_FRAC    = float(os.environ.get("RATECARD_MAX_HEIGHT_FRAC",     "0.06"))
 MIN_COLOR_FRAC     = float(os.environ.get("RATECARD_MIN_COLOR_FRACTION",  "0.60"))
 ROW_HEIGHT_RATIO   = float(os.environ.get("RATECARD_ROW_HEIGHT_RATIO",    "0.50"))
-DEBUG              = os.environ.get("RATECARD_DEBUG", "false").lower() == "true"
+
+def _debug() -> bool:
+    """Read RATECARD_DEBUG dynamically so it can be toggled at runtime."""
+    return os.environ.get("RATECARD_DEBUG", "false").lower() == "true"
 
 # HSV ranges for "tag-like" colours (orange, red, yellow)
 # Format: [(h_lo, h_hi, s_lo, v_lo), ...]  — h in [0,180] OpenCV convention
@@ -200,7 +203,7 @@ def remove_rate_cards(
 
         if not flag_a:
             # No geometric flag → keep without running B or C
-            if DEBUG:
+            if _debug():
                 det = {**det, "filter_reason": None}
             kept.append(det)
             continue
@@ -210,7 +213,7 @@ def remove_rate_cards(
 
         if flag_b or flag_c:
             # Geometric + corroborating signal → drop
-            if DEBUG:
+            if _debug():
                 reason_parts = []
                 reason_parts.append("aspect")
                 if flag_b:
@@ -221,7 +224,7 @@ def remove_rate_cards(
             dropped.append(det)
         else:
             # Geometric flag only — insufficient evidence, keep
-            if DEBUG:
+            if _debug():
                 det = {**det, "filter_reason": None}
             kept.append(det)
 
