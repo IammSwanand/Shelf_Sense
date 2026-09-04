@@ -1,0 +1,86 @@
+version: "3.9"
+
+services:
+
+  # ── Detector Service ────────────────────────────────────────────────────────
+  detector:
+    build:
+      context: ./detector_service
+      dockerfile: Dockerfile
+    container_name: infilect_detector
+    environment:
+      - DETECTOR_WEIGHTS_PATH=/app/weights/best.pt
+      - DET_CONF_THRESHOLD=${DET_CONF_THRESHOLD:-0.25}
+      - DET_IOU_THRESHOLD=${DET_IOU_THRESHOLD:-0.45}
+      - DET_IMG_SIZE=${DET_IMG_SIZE:-640}
+      - PORT=5001
+    volumes:
+      # Mount weights read-only — NOT baked into the image
+      - ./detector_service/weights:/app/weights:ro
+    ports:
+      # Exposed for debug/smoke-testing only; Flask talks to detector internally
+      - "5001:5001"
+    healthcheck:
+      test: ["CMD", "python", "-c",
+             "import urllib.request; urllib.request.urlopen('http://localhost:5001/health')"]
+      interval: 15s
+      timeout: 10s
+      retries: 5
+      start_period: 40s
+    restart: unless-stopped
+
+  # ── Grouping Service ────────────────────────────────────────────────────────
+  grouping:
+    build:
+      context: ./grouping_service
+      dockerfile: Dockerfile
+    container_name: infilect_grouping
+    environment:
+      - DBSCAN_EPS=${DBSCAN_EPS:-0.30}
+      - DBSCAN_MIN_SAMPLES=${DBSCAN_MIN_SAMPLES:-1}
+      - PORT=5002
+    ports:
+      # Exposed for debug/smoke-testing only
+      - "5002:5002"
+    healthcheck:
+      test: ["CMD", "python", "-c",
+             "import urllib.request; urllib.request.urlopen('http://localhost:5002/health')"]
+      interval: 15s
+      timeout: 10s
+      retries: 5
+      start_period: 60s   # DINOv2 download on first start takes longer
+    restart: unless-stopped
+
+  # ── Flask Orchestrator ──────────────────────────────────────────────────────
+  flask:
+    build:
+      context: ./flask_app
+      dockerfile: Dockerfile
+    container_name: infilect_flask
+    environment:
+      - DETECTOR_URL=http://detector:5001
+      - GROUPING_URL=http://grouping:5002
+      - DOWNSTREAM_TIMEOUT=${DOWNSTREAM_TIMEOUT:-60}
+      - OUTPUTS_DIR=/app/outputs
+      - PORT=5000
+      # Rate-card filter thresholds (all optional — defaults are in filtering.py)
+      - RATECARD_MAX_ASPECT=${RATECARD_MAX_ASPECT:-2.5}
+      - RATECARD_MAX_HEIGHT_FRAC=${RATECARD_MAX_HEIGHT_FRAC:-0.06}
+      - RATECARD_MIN_COLOR_FRACTION=${RATECARD_MIN_COLOR_FRACTION:-0.60}
+      - RATECARD_ROW_HEIGHT_RATIO=${RATECARD_ROW_HEIGHT_RATIO:-0.50}
+      - RATECARD_DEBUG=${RATECARD_DEBUG:-false}
+    volumes:
+      # outputs/ is shared — Flask writes visualizations; only Flask serves them
+      - outputs_vol:/app/outputs
+    ports:
+      - "5000:5000"
+    depends_on:
+      detector:
+        condition: service_healthy
+      grouping:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  outputs_vol:
+    driver: local
