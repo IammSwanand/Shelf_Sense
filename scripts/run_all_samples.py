@@ -52,9 +52,9 @@ def main():
     try:
         health = requests.get(f"{BASE_URL}/health", timeout=5)
         assert health.json()["status"] == "ok"
-        print("✓ Flask server is up\n")
+        print("[OK] Flask server is up\n")
     except Exception as e:
-        print(f"✗ Flask server not reachable at {BASE_URL}: {e}", file=sys.stderr)
+        print(f"[FAIL] Flask server not reachable at {BASE_URL}: {e}", file=sys.stderr)
         sys.exit(1)
 
     headers = [

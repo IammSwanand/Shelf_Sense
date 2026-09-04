@@ -128,9 +128,12 @@ def _draw_visualization(
     """
     draw = ImageDraw.Draw(image)
 
-    # Try to load a small font; fall back to default
+    # Stroke thickness: adaptive to image size so it's always visible
+    img_w, img_h = image.size
+    stroke = max(3, img_w // 300)  # e.g. 4px for 1080px wide, 7px for 2160px
+    font_size = max(16, img_w // 60)
     try:
-        font = ImageFont.truetype("arial.ttf", size=max(14, image.width // 80))
+        font = ImageFont.truetype("arial.ttf", size=font_size)
     except Exception:
         font = ImageFont.load_default()
 
@@ -139,10 +142,16 @@ def _draw_visualization(
         box  = item["box"]
         color_hex = _PALETTE[gid % len(_PALETTE)]
         color_rgb = _hex_to_rgb(color_hex)
+        # Semi-transparent fill colour (20% alpha equivalent via blend)
+        fill_rgb  = tuple(int(c * 0.15 + 255 * 0.85) for c in color_rgb)
 
         x1, y1, x2, y2 = [int(v) for v in box]
-        # Draw box with 2-pixel border
-        for offset in range(2):
+
+        # Subtle fill
+        draw.rectangle([x1, y1, x2, y2], fill=fill_rgb)
+
+        # Thick outline — draw multiple concentric rectangles
+        for offset in range(stroke):
             draw.rectangle(
                 [x1 - offset, y1 - offset, x2 + offset, y2 + offset],
                 outline=color_rgb,
@@ -154,9 +163,10 @@ def _draw_visualization(
             bbox = draw.textbbox((x1, y1), label, font=font)
             lw, lh = bbox[2] - bbox[0], bbox[3] - bbox[1]
         except AttributeError:
-            lw, lh = len(label) * 8, 12
-        draw.rectangle([x1, y1 - lh - 4, x1 + lw + 6, y1], fill=color_rgb)
-        draw.text((x1 + 3, y1 - lh - 2), label, fill=(255, 255, 255), font=font)
+            lw, lh = len(label) * 9, 14
+        pad = 4
+        draw.rectangle([x1, y1 - lh - pad * 2, x1 + lw + pad * 2, y1], fill=color_rgb)
+        draw.text((x1 + pad, y1 - lh - pad), label, fill=(255, 255, 255), font=font)
 
     filename = f"{image_id}_viz.jpg"
     save_path = OUTPUTS_DIR / filename
