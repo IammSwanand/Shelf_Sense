@@ -7,9 +7,13 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
 COPY requirements.txt .
-# torch CPU-only wheel — keeps image small (no CUDA)
+# ── PyTorch: choose ONE of the two lines below ───────────────────────────────
+# CPU-only (default, smaller image ~2GB):
 RUN pip install --no-cache-dir torch --index-url https://download.pytorch.org/whl/cpu \
     && pip install --no-cache-dir -r requirements.txt
+# GPU / CUDA 12.1 (uncomment + comment out the CPU line above for GPU deployments):
+# RUN pip install --no-cache-dir torch --index-url https://download.pytorch.org/whl/cu121 \
+#     && pip install --no-cache-dir -r requirements.txt
 
 COPY . .
 

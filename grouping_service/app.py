@@ -38,24 +38,28 @@ PORT               = int(os.environ.get("PORT", "5002"))
 # Padding added around each crop (pixels in original image space)
 CROP_PAD = 5
 
+# ── Device selection (auto GPU, fall back to CPU) ─────────────────────────────
+import torch as _torch
+DEVICE = _torch.device("cuda" if _torch.cuda.is_available() else "cpu")
+
 # ── DINOv2 model singleton ────────────────────────────────────────────────────
 _dino_model     = None
 _dino_processor = None
 
 
 def _load_dino():
-    """Load DINOv2 ViT-S/14 once at startup."""
+    """Load DINOv2 ViT-S/14 once at startup, on the best available device."""
     global _dino_model, _dino_processor
     try:
         from transformers import AutoImageProcessor, AutoModel
-        import torch
 
         model_name = "facebook/dinov2-small"
-        log.info(f"Loading DINOv2 model ({model_name}) ...")
+        log.info(f"Loading DINOv2 model ({model_name}) on {DEVICE} ...")
         _dino_processor = AutoImageProcessor.from_pretrained(model_name)
         _dino_model     = AutoModel.from_pretrained(model_name)
+        _dino_model.to(DEVICE)   # GPU if available, else CPU
         _dino_model.eval()
-        log.info("✓ DINOv2 loaded successfully.")
+        log.info(f"✓ DINOv2 loaded on {DEVICE}.")
     except Exception as e:
         log.error(f"Failed to load DINOv2: {e}")
         raise
@@ -91,12 +95,15 @@ def _embed_crops(crops: list[Image.Image]) -> np.ndarray:
     """
     import torch
 
+    # Move inputs to the same device as the model
     inputs = _dino_processor(images=crops, return_tensors="pt")
+    inputs = {k: v.to(DEVICE) for k, v in inputs.items()}
+
     with torch.no_grad():
         outputs = _dino_model(**inputs)
 
-    # CLS token embedding — shape (N, 384)
-    embeddings = outputs.last_hidden_state[:, 0, :].numpy().astype(np.float32)
+    # CLS token — move back to CPU for numpy/sklearn
+    embeddings = outputs.last_hidden_state[:, 0, :].cpu().numpy().astype(np.float32)
 
     # L2 normalise so cosine distance = 1 - dot product
     norms = np.linalg.norm(embeddings, axis=1, keepdims=True)
