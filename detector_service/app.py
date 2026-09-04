@@ -51,7 +51,7 @@ def _try_load_custom() -> bool:
         from ultralytics import YOLO
         log.info(f"Loading custom weights from {WEIGHTS_PATH} ...")
         _model = YOLO(WEIGHTS_PATH)
-        _model_used = "custom-sku110k-yolo11s"
+        _model_used = "custom-sku110k-yolov8s"  # API_SPEC.md §2 mandated string
         log.info("✓ Custom SKU-110K YOLO11s loaded.")
         return True
     except Exception as e:
@@ -142,10 +142,10 @@ _load_model()
 # ── Endpoints ─────────────────────────────────────────────────────────────────
 @app.route("/health", methods=["GET"])
 def health():
+    # API_SPEC.md §2: exactly {"status": "ok", "model_loaded": true}
     return jsonify({
-        "status": "ok",
+        "status":       "ok",
         "model_loaded": _model_used is not None,
-        "model_used": _model_used,
     }), 200
 
 

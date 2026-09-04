@@ -29,7 +29,7 @@ log = logging.getLogger(__name__)
 app = Flask(__name__)
 
 # ── Config ────────────────────────────────────────────────────────────────────
-DBSCAN_EPS         = float(os.environ.get("DBSCAN_EPS", "0.30"))
+DBSCAN_EPS         = float(os.environ.get("DBSCAN_EPS", "0.28"))  # API_SPEC.md §3
 DBSCAN_MIN_SAMPLES = int(os.environ.get("DBSCAN_MIN_SAMPLES", "1"))
 PORT               = int(os.environ.get("PORT", "5002"))
 
