@@ -1,0 +1,314 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Infilect — Retail Shelf Analyzer</title>
+  <meta name="description" content="AI-powered retail shelf product detection and brand grouping pipeline by Infilect." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/static/style.css" />
+</head>
+<body>
+  <div class="bg-orbs">
+    <div class="orb orb-1"></div>
+    <div class="orb orb-2"></div>
+    <div class="orb orb-3"></div>
+  </div>
+
+  <header class="header">
+    <div class="logo">
+      <div class="logo-icon">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <rect x="2" y="3" width="20" height="14" rx="2"/>
+          <path d="M8 21h8M12 17v4"/>
+          <path d="M6 8h4M14 8h4M6 11h2M14 11h4"/>
+        </svg>
+      </div>
+      <span class="logo-text">Infilect <span class="logo-sub">Shelf Analyzer</span></span>
+    </div>
+    <div class="header-badge">AI Pipeline v1.0</div>
+  </header>
+
+  <main class="main">
+    <!-- Upload Section -->
+    <section class="upload-section" id="upload-section">
+      <h1 class="title">Retail Shelf Analysis</h1>
+      <p class="subtitle">Upload a shelf image to detect products and group them by brand using AI</p>
+
+      <div class="upload-card" id="drop-zone">
+        <div class="upload-icon">
+          <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+            <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/>
+            <polyline points="17 8 12 3 7 8"/>
+            <line x1="12" y1="3" x2="12" y2="15"/>
+          </svg>
+        </div>
+        <p class="upload-text">Drag & drop a shelf image here</p>
+        <p class="upload-sub">or</p>
+        <label class="btn btn-primary" for="file-input" id="choose-btn">
+          Choose File
+        </label>
+        <input type="file" id="file-input" accept="image/*" hidden />
+        <p class="upload-formats">Supports JPG, PNG, WEBP — up to 20 MB</p>
+      </div>
+
+      <!-- Preview before analyze -->
+      <div class="preview-wrap hidden" id="preview-wrap">
+        <img id="preview-img" class="preview-img" src="" alt="Selected shelf image" />
+        <div class="preview-actions">
+          <button class="btn btn-outline" id="clear-btn">✕ Clear</button>
+          <button class="btn btn-primary" id="analyze-btn">
+            <span class="btn-icon">⚡</span> Analyze Shelf
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <!-- Loading State -->
+    <section class="loading-section hidden" id="loading-section">
+      <div class="spinner-wrap">
+        <div class="spinner"></div>
+        <p class="loading-text">Analyzing shelf...</p>
+        <p class="loading-sub" id="loading-stage">Running product detection</p>
+      </div>
+      <div class="pipeline-steps">
+        <div class="step active" id="step-detect">
+          <div class="step-dot"></div>
+          <span>Detection</span>
+        </div>
+        <div class="step-line"></div>
+        <div class="step" id="step-filter">
+          <div class="step-dot"></div>
+          <span>Filtering</span>
+        </div>
+        <div class="step-line"></div>
+        <div class="step" id="step-group">
+          <div class="step-dot"></div>
+          <span>Grouping</span>
+        </div>
+        <div class="step-line"></div>
+        <div class="step" id="step-viz">
+          <div class="step-dot"></div>
+          <span>Visualization</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- Results Section -->
+    <section class="results-section hidden" id="results-section">
+      <!-- Stats bar -->
+      <div class="stats-bar">
+        <div class="stat-card">
+          <div class="stat-value" id="stat-products">—</div>
+          <div class="stat-label">Products</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-value" id="stat-groups">—</div>
+          <div class="stat-label">Brand Groups</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-value" id="stat-filtered">—</div>
+          <div class="stat-label">Rate Cards Removed</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-value" id="stat-latency">—</div>
+          <div class="stat-label">Latency (ms)</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-value stat-model" id="stat-model">—</div>
+          <div class="stat-label">Model</div>
+        </div>
+      </div>
+
+      <!-- Visualization -->
+      <div class="viz-wrap">
+        <div class="viz-label">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="10"/><path d="M12 8v4l3 3"/>
+          </svg>
+          Output Visualization
+        </div>
+        <img id="viz-img" class="viz-img" src="" alt="Annotated shelf visualization" />
+      </div>
+
+      <!-- JSON Panel -->
+      <div class="json-panel">
+        <div class="json-header">
+          <span class="json-label">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/>
+            </svg>
+            Raw JSON Response
+          </span>
+          <button class="btn-copy" id="copy-btn" title="Copy JSON">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>
+              <path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/>
+            </svg>
+            Copy
+          </button>
+        </div>
+        <pre class="json-body" id="json-body"></pre>
+      </div>
+
+      <!-- Analyze again -->
+      <div class="retry-wrap">
+        <button class="btn btn-outline" id="retry-btn">← Analyze Another Image</button>
+      </div>
+    </section>
+
+    <!-- Error Section -->
+    <div class="error-toast hidden" id="error-toast">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
+      </svg>
+      <span id="error-msg">An error occurred.</span>
+    </div>
+  </main>
+
+  <script>
+    const dropZone    = document.getElementById('drop-zone');
+    const fileInput   = document.getElementById('file-input');
+    const previewWrap = document.getElementById('preview-wrap');
+    const previewImg  = document.getElementById('preview-img');
+    const clearBtn    = document.getElementById('clear-btn');
+    const analyzeBtn  = document.getElementById('analyze-btn');
+    const uploadSec   = document.getElementById('upload-section');
+    const loadingSec  = document.getElementById('loading-section');
+    const resultsSec  = document.getElementById('results-section');
+    const errorToast  = document.getElementById('error-toast');
+    const errorMsg    = document.getElementById('error-msg');
+    const retryBtn    = document.getElementById('retry-btn');
+    const copyBtn     = document.getElementById('copy-btn');
+
+    let selectedFile = null;
+
+    // ── Drag & drop ──────────────────────────────────────────────────────────
+    dropZone.addEventListener('dragover', e => {
+      e.preventDefault();
+      dropZone.classList.add('drag-over');
+    });
+    dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag-over'));
+    dropZone.addEventListener('drop', e => {
+      e.preventDefault();
+      dropZone.classList.remove('drag-over');
+      const file = e.dataTransfer.files[0];
+      if (file && file.type.startsWith('image/')) setFile(file);
+    });
+
+    fileInput.addEventListener('change', () => {
+      if (fileInput.files[0]) setFile(fileInput.files[0]);
+    });
+
+    function setFile(file) {
+      selectedFile = file;
+      const url = URL.createObjectURL(file);
+      previewImg.src = url;
+      previewWrap.classList.remove('hidden');
+    }
+
+    clearBtn.addEventListener('click', () => {
+      selectedFile = null;
+      fileInput.value = '';
+      previewWrap.classList.add('hidden');
+      previewImg.src = '';
+    });
+
+    // ── Analyze ──────────────────────────────────────────────────────────────
+    analyzeBtn.addEventListener('click', runAnalyze);
+
+    function showError(msg) {
+      errorMsg.textContent = msg;
+      errorToast.classList.remove('hidden');
+      setTimeout(() => errorToast.classList.add('hidden'), 6000);
+    }
+
+    function setStep(stepId) {
+      ['step-detect','step-filter','step-group','step-viz'].forEach(id => {
+        const el = document.getElementById(id);
+        el.classList.remove('active', 'done');
+      });
+      const stages = ['step-detect','step-filter','step-group','step-viz'];
+      const idx = stages.indexOf(stepId);
+      stages.slice(0, idx).forEach(id => document.getElementById(id).classList.add('done'));
+      if (stepId) document.getElementById(stepId).classList.add('active');
+    }
+
+    async function runAnalyze() {
+      if (!selectedFile) return;
+
+      // Switch to loading
+      uploadSec.classList.add('hidden');
+      resultsSec.classList.add('hidden');
+      loadingSec.classList.remove('hidden');
+
+      setStep('step-detect');
+      document.getElementById('loading-sub').textContent = 'Running product detection...';
+
+      const formData = new FormData();
+      formData.append('image', selectedFile);
+
+      // Fake stage progress for UX
+      setTimeout(() => {
+        setStep('step-filter');
+        document.getElementById('loading-stage').textContent = 'Filtering rate cards...';
+      }, 800);
+      setTimeout(() => {
+        setStep('step-group');
+        document.getElementById('loading-stage').textContent = 'Embedding & clustering brands...';
+      }, 2000);
+      setTimeout(() => {
+        setStep('step-viz');
+        document.getElementById('loading-stage').textContent = 'Generating visualization...';
+      }, 3500);
+
+      try {
+        const resp = await fetch('/api/analyze', { method: 'POST', body: formData });
+        const data = await resp.json();
+
+        if (!resp.ok) {
+          loadingSec.classList.add('hidden');
+          uploadSec.classList.remove('hidden');
+          showError(data.error || `Error ${resp.status}`);
+          return;
+        }
+
+        // Populate results
+        document.getElementById('stat-products').textContent  = data.num_products ?? '—';
+        document.getElementById('stat-groups').textContent    = data.num_groups ?? '—';
+        document.getElementById('stat-filtered').textContent  = data.num_filtered_ratecards ?? '—';
+        document.getElementById('stat-latency').textContent   = data.latency_ms != null ? `${data.latency_ms}` : '—';
+        document.getElementById('stat-model').textContent     = data.model_used ?? '—';
+
+        document.getElementById('viz-img').src = data.visualization_url + '?t=' + Date.now();
+        document.getElementById('json-body').textContent = JSON.stringify(data, null, 2);
+
+        loadingSec.classList.add('hidden');
+        resultsSec.classList.remove('hidden');
+
+      } catch (err) {
+        loadingSec.classList.add('hidden');
+        uploadSec.classList.remove('hidden');
+        showError('Network error: ' + err.message);
+      }
+    }
+
+    retryBtn.addEventListener('click', () => {
+      resultsSec.classList.add('hidden');
+      uploadSec.classList.remove('hidden');
+      previewWrap.classList.add('hidden');
+      selectedFile = null;
+      fileInput.value = '';
+    });
+
+    copyBtn.addEventListener('click', () => {
+      const text = document.getElementById('json-body').textContent;
+      navigator.clipboard.writeText(text).then(() => {
+        copyBtn.textContent = '✓ Copied!';
+        setTimeout(() => copyBtn.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg> Copy`, 2000);
+      });
+    });
+  </script>
+</body>
+</html>
