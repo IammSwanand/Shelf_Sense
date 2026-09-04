@@ -132,6 +132,25 @@
         <img id="viz-img" class="viz-img" src="" alt="Annotated shelf visualization" />
       </div>
 
+      <!-- Brand Groups Color Legend & Breakdown -->
+      <div class="groups-panel" id="groups-panel">
+        <div class="groups-header">
+          <span class="groups-label">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <rect x="3" y="3" width="7" height="7" rx="1.5"></rect>
+              <rect x="14" y="3" width="7" height="7" rx="1.5"></rect>
+              <rect x="14" y="14" width="7" height="7" rx="1.5"></rect>
+              <rect x="3" y="14" width="7" height="7" rx="1.5"></rect>
+            </svg>
+            Detected Brand Groups Breakdown
+          </span>
+          <span class="groups-badge" id="groups-count-badge">0 Groups</span>
+        </div>
+        <div class="groups-grid" id="groups-grid">
+          <!-- Dynamically populated by JS -->
+        </div>
+      </div>
+
       <!-- JSON Panel -->
       <div class="json-panel">
         <div class="json-header">
@@ -181,6 +200,13 @@
     const errorMsg    = document.getElementById('error-msg');
     const retryBtn    = document.getElementById('retry-btn');
     const copyBtn     = document.getElementById('copy-btn');
+
+    // Matching high-contrast palette used by the visualization renderer
+    const PALETTE = [
+      "#2563EB", "#10B981", "#F59E0B", "#EF4444", "#8B5CF6", "#06B6D4",
+      "#EC4899", "#84CC16", "#F97316", "#6366F1", "#14B8A6", "#D946EF",
+      "#3B82F6", "#E11D48"
+    ];
 
     let selectedFile = null;
 
@@ -250,14 +276,14 @@
       const formData = new FormData();
       formData.append('image', selectedFile);
 
-      // Fake stage progress for UX
+      // Stage progress for UX
       setTimeout(() => {
         setStep('step-filter');
         document.getElementById('loading-stage').textContent = 'Filtering rate cards...';
       }, 800);
       setTimeout(() => {
         setStep('step-group');
-        document.getElementById('loading-stage').textContent = 'Embedding & clustering brands...';
+        document.getElementById('loading-stage').textContent = 'Extracting DINOv2 & HSV color features...';
       }, 2000);
       setTimeout(() => {
         setStep('step-viz');
@@ -284,6 +310,51 @@
 
         document.getElementById('viz-img').src = data.visualization_url + '?t=' + Date.now();
         document.getElementById('json-body').textContent = JSON.stringify(data, null, 2);
+
+        // ── Render Brand Groups Breakdown & Color Legend ─────────────────────
+        const groupsGrid = document.getElementById('groups-grid');
+        const groupsBadge = document.getElementById('groups-count-badge');
+        groupsGrid.innerHTML = '';
+
+        const detections = data.detections || [];
+        const totalProds = detections.length;
+
+        const groupCounts = {};
+        detections.forEach(d => {
+          const gid = d.group_id != null ? d.group_id : 0;
+          groupCounts[gid] = (groupCounts[gid] || 0) + 1;
+        });
+
+        const sortedGids = Object.keys(groupCounts).map(Number).sort((a, b) => groupCounts[b] - groupCounts[a]);
+        groupsBadge.textContent = `${sortedGids.length} Brand Group${sortedGids.length === 1 ? '' : 's'}`;
+
+        if (sortedGids.length === 0) {
+          groupsGrid.innerHTML = '<p class="groups-empty">No products detected on shelf.</p>';
+        } else {
+          sortedGids.forEach(gid => {
+            const count = groupCounts[gid];
+            const pct = totalProds > 0 ? ((count / totalProds) * 100).toFixed(1) : '0';
+            const color = PALETTE[gid % PALETTE.length];
+
+            const card = document.createElement('div');
+            card.className = 'group-card';
+            card.style.setProperty('--group-color', color);
+            card.innerHTML = `
+              <div class="group-card-header">
+                <div class="group-color-pill">
+                  <span class="group-color-dot" style="background-color: ${color}; box-shadow: 0 0 10px ${color}88;"></span>
+                  <span class="group-title">Group ${gid}</span>
+                </div>
+                <span class="group-count">${count} ${count === 1 ? 'item' : 'items'}</span>
+              </div>
+              <div class="group-progress-wrap">
+                <div class="group-progress-bar" style="width: ${pct}%; background-color: ${color};"></div>
+              </div>
+              <div class="group-share-label">${pct}% of shelf (${count}/${totalProds})</div>
+            `;
+            groupsGrid.appendChild(card);
+          });
+        }
 
         loadingSec.classList.add('hidden');
         resultsSec.classList.remove('hidden');
