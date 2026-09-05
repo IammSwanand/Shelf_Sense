@@ -47,7 +47,7 @@ A scalable microservice pipeline for automated retail shelf analysis:
 ## Quick Start
 
 ### 1. Model Weights
-Verify that `sku110k-yolo11-s640.pt` exists in `detector_service/weights/` (downloaded automatically on first startup if missing).
+Verify that `sku110k-yolo11-s640.pt` exists in `detector_service/weights/` (downloaded automatically on first startup from Hugging Face: [`chistopat/sku110k-yolo11-object-detector`](https://huggingface.co/chistopat/sku110k-yolo11-object-detector) if missing).
 
 ### 2. Run with Docker Compose (Recommended)
 
