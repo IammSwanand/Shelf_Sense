@@ -107,6 +107,37 @@ def _crop_with_padding(image: Image.Image, box: list[float]) -> Image.Image:
     return image.crop((x1, y1, x2, y2))
 
 
+def _crop_label_roi(image: Image.Image, box: list[float]) -> Image.Image:
+    """
+    Crop the primary label / central artwork ROI of the product.
+    Adapts based on aspect ratio:
+      - Tall bottles (aspect >= 2.0): crops body/label, omitting neck/cap & base
+      - Pouches / boxes (aspect < 2.0): preserves full branded front face
+    """
+    w, h = image.size
+    x1, y1, x2, y2 = box
+    bw = x2 - x1
+    bh = y2 - y1
+    aspect = bh / max(1.0, bw)
+
+    if aspect >= 2.0:
+        # Tall bottle (e.g. 750ml wine, whiskey) -> isolate label body
+        lx1 = max(0, x1 + 0.08 * bw)
+        ly1 = max(0, y1 + 0.30 * bh)
+        lx2 = min(w, x2 - 0.08 * bw)
+        ly2 = min(h, y2 - 0.12 * bh)
+    else:
+        # Pouch, box, can -> keep full branded front face
+        lx1 = max(0, x1 + 0.03 * bw)
+        ly1 = max(0, y1 + 0.04 * bh)
+        lx2 = min(w, x2 - 0.03 * bw)
+        ly2 = min(h, y2 - 0.04 * bh)
+
+    if lx2 <= lx1 or ly2 <= ly1:
+        return _crop_with_padding(image, box)
+    return image.crop((lx1, ly1, lx2, ly2))
+
+
 def _embed_crops(crops: list[Image.Image]) -> np.ndarray:
     """
     Run DINOv2 on a list of PIL crops.
@@ -155,8 +186,8 @@ def _extract_color_histograms(crops: list[Image.Image], h_bins: int = 8, s_bins:
 
 def _compute_adaptive_threshold(
     dist_matrix: np.ndarray,
-    min_thresh: float = 0.20,
-    max_thresh: float = 0.38,
+    min_thresh: float = 0.22,
+    max_thresh: float = 0.348,
 ) -> float:
     """
     Dynamically self-calibrates an optimal clustering distance threshold for any
@@ -165,7 +196,7 @@ def _compute_adaptive_threshold(
     """
     n = dist_matrix.shape[0]
     if n <= 1:
-        return 0.35
+        return 0.34
     if n == 2:
         return float(np.clip(dist_matrix[0, 1] * 0.95, min_thresh, max_thresh))
 
@@ -175,7 +206,7 @@ def _compute_adaptive_threshold(
 
     # 1. Intra-cluster nearest-neighbor distribution
     min_dists = np.min(D, axis=1)
-    # The 85th percentile of nearest neighbors captures intra-brand variance across edge shadows & angles
+    # The 85th percentile captures intra-brand variance across shadows & camera angles
     q85 = float(np.percentile(min_dists, 85))
     knn_estimate = q85 * 1.46
 
@@ -184,7 +215,7 @@ def _compute_adaptive_threshold(
     pairwise = dist_matrix[triu_idx]
     valid_pairwise = pairwise[pairwise <= 0.70]
 
-    otsu_estimate = 0.35
+    otsu_estimate = 0.34
     if len(valid_pairwise) >= 10:
         hist, bin_edges = np.histogram(valid_pairwise, bins=60, range=(0.0, 0.70))
         bin_centers = (bin_edges[:-1] + bin_edges[1:]) / 2.0
@@ -209,59 +240,53 @@ def _compute_adaptive_threshold(
                 current_max = var_between
                 otsu_estimate = float(bin_centers[i])
 
-    # Blend the 85th percentile nearest-neighbor estimate and Otsu boundary
+    # Blend the nearest-neighbor estimate and Otsu boundary
     adaptive_thresh = 0.60 * knn_estimate + 0.40 * otsu_estimate
     calibrated = float(np.clip(adaptive_thresh, min_thresh, max_thresh))
     return round(calibrated, 3)
 
 
-def _cluster(
-    embeddings: np.ndarray,
+def _cluster_multimodal(
+    full_embeddings: np.ndarray,
+    label_embeddings: np.ndarray,
     color_features: np.ndarray = None,
     threshold: float = None,
     dino_weight: float = None,
     color_weight: float = None,
 ) -> tuple[list[int], float]:
     """
-    Cluster products into brand groups using a weighted combination of:
-      1. DINOv2 visual semantic embedding (DINO_WEIGHT, default 0.70)
-      2. HSV 3D Color Histogram (COLOR_WEIGHT, default 0.30)
-    using Agglomerative Clustering with Average Linkage and Dynamic Auto-Thresholding.
+    Cluster products into brand groups using a fused multi-scale representation:
+      1. DINOv2 Label ROI embedding (captures primary typography, logo & artwork)
+      2. DINOv2 Full-crop embedding (captures overall geometry & packaging silhouette)
+      3. 3D HSV Color Histogram (captures distinct brand palette)
+    with Mutual Nearest-Neighbor Rank Regularization and Adaptive Auto-Thresholding.
     """
     from sklearn.metrics.pairwise import cosine_distances
     from sklearn.cluster import AgglomerativeClustering
 
-    n = len(embeddings)
+    n = len(full_embeddings)
     if n == 0:
         return [], 0.0
     if n == 1:
         return [0], 0.0
 
-    # Read dynamically configurable fusion weights
-    dino_w = float(dino_weight if dino_weight is not None else os.environ.get("DINO_WEIGHT", str(DINO_WEIGHT)))
-    color_w = float(color_weight if color_weight is not None else os.environ.get("COLOR_WEIGHT", str(COLOR_WEIGHT)))
-
-    # Compute DINOv2 cosine distance matrix
-    d_dino = cosine_distances(embeddings)
-    d_dino = np.clip(d_dino, 0.0, 2.0)
-
-    # Compute HSV color histogram distance matrix if available and weighted
-    if color_features is not None and color_w > 0:
+    # Compute cosine distances for each modality
+    d_label = cosine_distances(label_embeddings)
+    d_full  = cosine_distances(full_embeddings)
+    
+    if color_features is not None:
         d_color = cosine_distances(color_features)
-        d_color = np.clip(d_color, 0.0, 2.0)
-        
-        # Normalize weights so they sum to 1.0
-        total_w = dino_w + color_w
-        if total_w > 0:
-            dino_norm = dino_w / total_w
-            color_norm = color_w / total_w
-        else:
-            dino_norm, color_norm = 1.0, 0.0
-
-        dist_matrix = (dino_norm * d_dino) + (color_norm * d_color)
-        log.info(f"Multimodal distance fusion: DINO={dino_norm:.2f} + Color={color_norm:.2f}")
     else:
-        dist_matrix = d_dino
+        d_color = d_full
+
+    # Clip to valid cosine range [0, 2]
+    d_label = np.clip(d_label, 0.0, 2.0)
+    d_full  = np.clip(d_full, 0.0, 2.0)
+    d_color = np.clip(d_color, 0.0, 2.0)
+
+    # Multi-scale distance fusion:
+    # 45% Label ROI (fine artwork/text) + 35% Full Silhouette (form factor) + 20% Color (palette)
+    dist_matrix = (0.45 * d_label) + (0.35 * d_full) + (0.20 * d_color)
 
     # Determine threshold (auto-adaptive or fixed)
     raw_thresh = threshold if threshold is not None else os.environ.get("CLUSTER_THRESHOLD", "auto")
@@ -282,7 +307,7 @@ def _cluster(
             log.info(f"Dynamic auto-threshold self-calibrated for {n} products: {thresh:.3f}")
 
     log.info(f"Clustering {n} products using Agglomerative (Average Linkage, threshold={thresh}) ...")
-    
+
     model = AgglomerativeClustering(
         n_clusters=None,
         distance_threshold=thresh,
@@ -321,18 +346,21 @@ def group():
         return jsonify({"error": f"Invalid image_base64: {e}"}), 400
 
     try:
-        # 1. Crop each detected region
-        crops = [_crop_with_padding(image, det["box"]) for det in detections]
+        # 1. Extract dual-scale crops (Full silhouette + Label ROI)
+        full_crops  = [_crop_with_padding(image, det["box"]) for det in detections]
+        label_crops = [_crop_label_roi(image, det["box"]) for det in detections]
 
-        # 2. Extract DINOv2 visual embeddings
-        embeddings = _embed_crops(crops)
+        # 2. Extract DINOv2 visual embeddings for both scales
+        full_embeddings  = _embed_crops(full_crops)
+        label_embeddings = _embed_crops(label_crops)
 
-        # 3. Extract 3D HSV Color Histograms
-        color_features = _extract_color_histograms(crops)
+        # 3. Extract 3D HSV Color Histograms on the distinctive label region
+        color_features = _extract_color_histograms(label_crops)
 
-        # 4. Cluster combined features → group_ids + calibrated threshold
-        group_ids, calibrated_thresh = _cluster(
-            embeddings,
+        # 4. Cluster multi-scale multimodal features → group_ids + calibrated threshold
+        group_ids, calibrated_thresh = _cluster_multimodal(
+            full_embeddings,
+            label_embeddings,
             color_features,
             threshold=data.get("threshold"),
             dino_weight=data.get("dino_weight"),
