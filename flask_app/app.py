@@ -144,15 +144,29 @@ def _draw_visualization(
     """
     draw = ImageDraw.Draw(image)
 
-    # Adaptive stroke & font sizing based on image resolution
+    # Adaptive stroke & font sizing based on image resolution (bolder & larger)
     img_w, img_h = image.size
-    stroke = max(3, img_w // 350)
-    font_size = max(18, img_w // 48)
-    try:
-        font = ImageFont.truetype("arial.ttf", size=font_size)
-    except Exception:
+    stroke = max(5, img_w // 220)
+    font_size = max(24, img_w // 36)
+
+    font = None
+    for font_name in [
+        "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
+        "/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf",
+        "/usr/share/fonts/truetype/freefont/FreeSansBold.ttf",
+        "arial.ttf",
+        "Arial.ttf",
+        "DejaVuSans.ttf",
+    ]:
         try:
-            font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", size=font_size)
+            font = ImageFont.truetype(font_name, size=font_size)
+            break
+        except Exception:
+            continue
+
+    if font is None:
+        try:
+            font = ImageFont.load_default(size=font_size)
         except Exception:
             font = ImageFont.load_default()
 
@@ -174,8 +188,8 @@ def _draw_visualization(
         except AttributeError:
             lw, lh = int(len(label) * font_size * 0.6), font_size
 
-        pad_x = max(6, font_size // 4)
-        pad_y = max(4, font_size // 5)
+        pad_x = max(8, font_size // 3)
+        pad_y = max(5, font_size // 4)
         badge_top = y1 - lh - (pad_y * 2)
         badge_bottom = y1
 
