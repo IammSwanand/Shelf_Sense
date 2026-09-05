@@ -64,9 +64,45 @@ def _find_weights_path() -> str:
         "sku110k-yolo11-s640.pt",
     ]
     for path in candidate_paths:
-        if path and os.path.exists(path):
+        if path and os.path.exists(path) and os.path.getsize(path) > 1000:
             return os.path.abspath(path)
     return os.environ.get("DETECTOR_WEIGHTS_PATH", "/app/weights/sku110k-yolo11-s640.pt")
+
+
+def _download_weights_if_needed(target_path: str) -> str:
+    """
+    If weights already exist on disk, returns immediately (0 network overhead).
+    If missing, automatically downloads from Hugging Face / configured URL.
+    """
+    if os.path.exists(target_path) and os.path.getsize(target_path) > 1000:
+        return target_path
+
+    download_url = os.environ.get("WEIGHTS_DOWNLOAD_URL")
+    if not download_url:
+        return target_path
+
+    log.info(f"Weights file not found at '{target_path}'. Auto-downloading from {download_url} ...")
+    os.makedirs(os.path.dirname(os.path.abspath(target_path)), exist_ok=True)
+    temp_path = f"{target_path}.tmp"
+    
+    import urllib.request
+    try:
+        urllib.request.urlretrieve(download_url, temp_path)
+        if os.path.exists(temp_path) and os.path.getsize(temp_path) > 1000:
+            os.replace(temp_path, target_path)
+            log.info(f"Successfully downloaded and verified weights at '{target_path}' ({os.path.getsize(target_path)} bytes).")
+        else:
+            raise RuntimeError("Downloaded weights file is empty or corrupted.")
+    except Exception as e:
+        if os.path.exists(temp_path):
+            try:
+                os.remove(temp_path)
+            except Exception:
+                pass
+        log.error(f"Failed to auto-download weights from {download_url}: {e}")
+        raise
+
+    return target_path
 
 
 def _load_model():
@@ -75,10 +111,15 @@ def _load_model():
     from ultralytics import YOLO
 
     weights_path = _find_weights_path()
-    if not os.path.exists(weights_path):
+    
+    # Only triggers download if file does not exist locally
+    if not os.path.exists(weights_path) or os.path.getsize(weights_path) <= 1000:
+        weights_path = _download_weights_if_needed(weights_path)
+
+    if not os.path.exists(weights_path) or os.path.getsize(weights_path) <= 1000:
         raise FileNotFoundError(
             f"YOLO11-s640 weights not found at '{weights_path}'. "
-            f"Please ensure the weights file is present."
+            f"Please ensure 'sku110k-yolo11-s640.pt' is present in 'detector_service/weights/' or set WEIGHTS_DOWNLOAD_URL."
         )
 
     log.info(f"Loading YOLO11-s640 weights from {weights_path} on {DEVICE} ...")
