@@ -30,6 +30,7 @@ from PIL import Image, ImageDraw, ImageFont
 from filtering import remove_rate_cards
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
+log = logging.getLogger(__name__)
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 app = Flask(
     __name__,
@@ -145,12 +146,15 @@ def _draw_visualization(
 
     # Adaptive stroke & font sizing based on image resolution
     img_w, img_h = image.size
-    stroke = max(2, img_w // 400)
-    font_size = max(13, img_w // 75)
+    stroke = max(3, img_w // 350)
+    font_size = max(18, img_w // 48)
     try:
         font = ImageFont.truetype("arial.ttf", size=font_size)
     except Exception:
-        font = ImageFont.load_default()
+        try:
+            font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", size=font_size)
+        except Exception:
+            font = ImageFont.load_default()
 
     for item in groups:
         gid = item.get("group_id", 0)
@@ -168,22 +172,23 @@ def _draw_visualization(
             bbox = draw.textbbox((0, 0), label, font=font)
             lw, lh = bbox[2] - bbox[0], bbox[3] - bbox[1]
         except AttributeError:
-            lw, lh = len(label) * 8, font_size
+            lw, lh = int(len(label) * font_size * 0.6), font_size
 
-        pad = 3
-        badge_top = y1 - lh - (pad * 2)
+        pad_x = max(6, font_size // 4)
+        pad_y = max(4, font_size // 5)
+        badge_top = y1 - lh - (pad_y * 2)
         badge_bottom = y1
 
         # Keep badge within image bounds
         if badge_top < 0:
             badge_top = y1
-            badge_bottom = y1 + lh + (pad * 2)
-            text_y = badge_top + pad
+            badge_bottom = y1 + lh + (pad_y * 2)
+            text_y = badge_top + pad_y
         else:
-            text_y = badge_top + pad
+            text_y = badge_top + pad_y
 
-        draw.rectangle([x1, badge_top, x1 + lw + (pad * 2), badge_bottom], fill=color_rgb)
-        draw.text((x1 + pad, text_y), label, fill=(255, 255, 255), font=font)
+        draw.rectangle([x1, badge_top, x1 + lw + (pad_x * 2), badge_bottom], fill=color_rgb)
+        draw.text((x1 + pad_x, text_y), label, fill=(255, 255, 255), font=font)
 
     filename = f"{image_id}_viz.jpg"
     save_path = OUTPUTS_DIR / filename
