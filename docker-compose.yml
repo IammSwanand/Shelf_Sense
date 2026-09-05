@@ -79,7 +79,7 @@ services:
       - ./flask_app/filtering.py:/app/filtering.py
       - ./flask_app/templates:/app/templates
       - ./flask_app/static:/app/static
-      # outputs/ bind mount — visualizations are saved to host outputs/ folder
+      # outputs/ bind mount: visualizations are saved to host outputs/ folder
       - ./outputs:/app/outputs
     ports:
       - "5000:5000"

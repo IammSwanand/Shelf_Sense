@@ -38,7 +38,7 @@ app = Flask(
     static_folder=os.path.join(BASE_DIR, "static"),
 )
 
-#  Config 
+# Configuration
 DETECTOR_URL       = os.environ.get("DETECTOR_URL",       "http://localhost:5001")
 GROUPING_URL       = os.environ.get("GROUPING_URL",       "http://localhost:5002")
 DOWNSTREAM_TIMEOUT = int(os.environ.get("DOWNSTREAM_TIMEOUT", "60"))
@@ -46,7 +46,7 @@ PORT               = int(os.environ.get("PORT", "5000"))
 OUTPUTS_DIR        = Path(os.environ.get("OUTPUTS_DIR", os.path.join(os.path.dirname(__file__), "..", "outputs")))
 OUTPUTS_DIR.mkdir(parents=True, exist_ok=True)
 
-#  Colour palette (high-contrast vibrant colors per brand group) 
+# High-contrast color palette for brand group labels
 _PALETTE = [
     "#2563EB",  # Royal Blue
     "#10B981",  # Emerald Green
@@ -197,7 +197,7 @@ def _draw_visualization(
     return filename
 
 
-#  Routes 
+# Routes
 @app.route("/", methods=["GET"])
 def index():
     return render_template("index.html")
@@ -217,7 +217,7 @@ def serve_output(filename):
 def analyze():
     t_start = time.perf_counter()
 
-    #  1. Extract image 
+    # Step 1: Decode input image
     pil_img, image_base64, err = _image_from_request()
     if err:
         return jsonify({"error": err}), 400
@@ -225,7 +225,7 @@ def analyze():
     width, height = pil_img.size
     image_id = hashlib.md5(image_base64[:512].encode()).hexdigest()[:12]
 
-    #  2. Call detector 
+    # Step 2: Run product detector
     det_resp, err = _call_detector(image_base64)
     if err:
         return jsonify({"error": f"detector service error: {err}"}), 502
@@ -233,11 +233,11 @@ def analyze():
     raw_detections = det_resp.get("detections", [])
     model_used     = det_resp.get("model_used", "unknown")
 
-    #  3. Filter rate cards (in-process, no network hop) 
+    # Step 3: Filter rate cards and shelf tags
     kept, dropped = remove_rate_cards(pil_img, raw_detections)
     num_filtered  = len(dropped)
 
-    #  4. Call grouping (on filtered detections only) 
+    # Step 4: Group filtered products by brand family
     if kept:
         grp_resp, err = _call_grouping(image_base64, kept)
         if err:
@@ -247,11 +247,11 @@ def analyze():
     else:
         groups, num_groups = [], 0
 
-    #  5. Draw and save visualization 
+    # Step 5: Render and save color-coded visualization
     viz_img  = pil_img.copy()
     viz_file = _draw_visualization(viz_img, groups, image_id)
 
-    #  6. Assemble final response 
+    # Step 6: Assemble JSON response
     latency_ms = round((time.perf_counter() - t_start) * 1000, 1)
 
     detections_out = [

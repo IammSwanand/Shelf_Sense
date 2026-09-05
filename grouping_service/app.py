@@ -34,7 +34,7 @@ log = logging.getLogger(__name__)
 
 app = Flask(__name__)
 
-#  Config 
+# Configuration
 CLUSTER_THRESHOLD = os.environ.get("CLUSTER_THRESHOLD", "auto").strip()
 DINO_WEIGHT       = float(os.environ.get("DINO_WEIGHT", "0.70"))
 COLOR_WEIGHT      = float(os.environ.get("COLOR_WEIGHT", "0.30"))
@@ -43,7 +43,7 @@ PORT              = int(os.environ.get("PORT", "5002"))
 # Padding added around each crop (pixels in original image space)
 CROP_PAD = 5
 
-#  Device selection (auto GPU, fall back to CPU, or override via DEVICE env) 
+# Device selection (CUDA GPU if available, else CPU)
 import torch as _torch
 
 
@@ -61,7 +61,7 @@ def _get_device() -> _torch.device:
 
 DEVICE = _get_device()
 
-#  DINOv2 model singleton 
+# DINOv2 model singleton
 _dino_model     = None
 _dino_processor = None
 

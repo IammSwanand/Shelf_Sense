@@ -1,43 +1,23 @@
 """
-Rate-Card / Price-Tag Filtering Module
+Rate-Card and Price-Tag Filter.
 
-Removes non-product detections (price tags, rate cards, shelf edge labels,
-promotional stickers) from the detector's raw output before grouping.
+Filters non-product objects (price tags, shelf-edge rate cards, promotional labels)
+from raw detector output before passing products to grouping.
 
-Three complementary stages run in sequence  cheap enough for the full set of
-boxes on a shelf image in < 5 ms total:
+Filtering Strategy:
+  Stage A (Geometry): Detects flat/short aspect ratios.
+  Stage B (Color): Flags high concentration of bright price-tag colors (yellow, red, orange).
+  Stage C (Row Position): Flags items unusually short compared to the row median at shelf lip.
 
-  Stage A  Geometric heuristics (always on, ~free)
-      Flags boxes that are too flat (wide relative to height) AND too short
-      in absolute terms  real products are taller than price tags.
-
-  Stage B  Color heuristics (on by default, cheap)
-      Checks the fraction of crop pixels in orange/red/yellow HSV ranges.
-      Price tags in retail images are almost always these attention colours.
-
-  Stage C  Row/position clustering (catches edge cases)
-      Groups detections into horizontal shelf rows by y-center.
-      Within each row flags boxes whose height is far below the row median
-      AND whose y-center sits at the bottom edge of the row  i.e. the
-      shelf lip where price strips live.
-
-Combination rule (avoids false positives on legitimate small/bright products):
-    DROP if: Stage_A AND (Stage_B OR Stage_C)
-
-All thresholds are read from environment variables with sensible defaults,
-so they can be calibrated without code changes:
-    RATECARD_MAX_ASPECT         (default 2.5)
-    RATECARD_MAX_HEIGHT_FRAC    (default 0.06)
-    RATECARD_MIN_COLOR_FRACTION (default 0.60)
-    RATECARD_ROW_HEIGHT_RATIO   (default 0.50)
-    RATECARD_DEBUG              (default false)  attach filter_reason to drops
+Decision rule:
+  DROP if: Stage_A AND (Stage_B OR Stage_C)
 """
 
 import os
 import numpy as np
 from PIL import Image
 
-#  Threshold configuration 
+# Filter thresholds (can be adjusted via environment variables)
 MAX_ASPECT         = float(os.environ.get("RATECARD_MAX_ASPECT",          "2.5"))
 MAX_HEIGHT_FRAC    = float(os.environ.get("RATECARD_MAX_HEIGHT_FRAC",     "0.06"))
 MIN_COLOR_FRAC     = float(os.environ.get("RATECARD_MIN_COLOR_FRACTION",  "0.60"))

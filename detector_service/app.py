@@ -1,12 +1,6 @@
 """
-Detector Service  Flask microservice wrapping YOLO11-s640 (SKU-110K weights).
-
-Environment variables (all optional, have defaults):
-  DETECTOR_WEIGHTS_PATH   Path to YOLO weights    (default: /app/weights/best.pt)
-  DET_CONF_THRESHOLD      YOLO conf threshold     (default: 0.25)
-  DET_IOU_THRESHOLD       YOLO NMS IoU threshold  (default: 0.45)
-  DET_IMG_SIZE            Inference resolution    (default: 640)
-  PORT                    Service port            (default: 5001)
+Detector Service: Flask microservice wrapping YOLO11-s640 (SKU-110K weights).
+Accepts an image and returns product bounding boxes with confidence scores.
 """
 
 import os
@@ -22,13 +16,13 @@ log = logging.getLogger(__name__)
 
 app = Flask(__name__)
 
-#  Config from environment 
+# Configuration
 CONF_THRESHOLD  = float(os.environ.get("DET_CONF_THRESHOLD", "0.25"))
 IOU_THRESHOLD   = float(os.environ.get("DET_IOU_THRESHOLD", "0.45"))
 IMG_SIZE        = int(os.environ.get("DET_IMG_SIZE", "640"))
 PORT            = int(os.environ.get("PORT", "5001"))
 
-#  Device selection (auto GPU, fall back to CPU, or override via DEVICE env) 
+# Device selection (CUDA GPU if available, else CPU)
 import torch as _torch
 
 
@@ -46,8 +40,8 @@ def _get_device():
 
 DEVICE = _get_device()
 
-#  Model singleton (loaded once at startup) 
-_model      = None   # YOLO model object
+# Model singleton (loaded once at startup)
+_model      = None
 _model_used = "sku110k-yolo11-s640"
 
 
