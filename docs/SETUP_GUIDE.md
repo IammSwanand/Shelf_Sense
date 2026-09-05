@@ -121,7 +121,7 @@ Upload any shelf photograph to view real-time stage progress, color-coded produc
 Send a sample image directly to the API endpoint:
 
 ```bash
-curl -X POST -F "image=@../sample_images/128008.jpg" http://localhost:5000/api/analyze
+curl -X POST -F "image=@test_images/dense_61.jpg" http://localhost:5000/api/analyze
 ```
 
 ### 3. Health Checks

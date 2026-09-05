@@ -1,7 +1,7 @@
 """
 scripts/run_all_samples.py
 
-Batch test: loops over all images in sample_images/, POSTs each to
+Batch test: loops over all images in test_images/, POSTs each to
 /api/analyze, and prints a summary table to stdout + saves a CSV.
 
 Usage (with the full stack running):
@@ -9,7 +9,7 @@ Usage (with the full stack running):
 
 Optional env vars:
     BASE_URL         Flask orchestrator URL  (default: http://localhost:5000)
-    SAMPLES_DIR      Path to sample images   (default: ./sample_images)
+    TEST_IMAGES_DIR  Path to test images     (default: ./test_images)
     OUTPUT_CSV       CSV output path         (default: ./scripts/batch_results.csv)
 """
 
@@ -23,7 +23,7 @@ import requests
 
 ROOT_DIR    = Path(__file__).resolve().parent.parent
 BASE_URL    = os.environ.get("BASE_URL",    "http://localhost:5000")
-SAMPLES_DIR = Path(os.environ.get("SAMPLES_DIR", ROOT_DIR / "sample_images"))
+SAMPLES_DIR = Path(os.environ.get("TEST_IMAGES_DIR", os.environ.get("SAMPLES_DIR", ROOT_DIR / "test_images")))
 OUTPUT_CSV  = Path(os.environ.get("OUTPUT_CSV",  ROOT_DIR / "scripts" / "batch_results.csv"))
 
 EXTS = {".jpg", ".jpeg", ".png", ".webp"}

@@ -74,7 +74,7 @@ Navigate to **[http://localhost:5000](http://localhost:5000)** in your browser.
 Accepts a shelf image and returns detections, brand groups, and visualization URL.
 
 ```bash
-curl -X POST -F "image=@sample_images/128008.jpg" http://localhost:5000/api/analyze
+curl -X POST -F "image=@test_images/dense_61.jpg" http://localhost:5000/api/analyze
 ```
 
 **Example Response:**
@@ -113,7 +113,7 @@ infilect_pipeline/
 ├── flask_app/              <- Web UI, API orchestrator, rate-card filtering
 ├── detector_service/       <- YOLO11s SKU-110K detection microservice
 ├── grouping_service/       <- DINOv2 + HSV Multimodal clustering microservice
-├── sample_images/          <- 20 retail shelf test images
+├── test_images/            <- Retail shelf test images
 ├── outputs/                <- Saved visual output images
 └── docs/
     ├── SETUP_GUIDE.md      <- Setup and execution manual
