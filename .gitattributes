@@ -1,0 +1,8 @@
+# Auto detect text files and perform LF normalization
+* text=auto
+
+# Docker and scripts need LF
+Dockerfile* text eol=lf
+*.sh text eol=lf
+.dockerignore text eol=lf
+.gitignore text eol=lf

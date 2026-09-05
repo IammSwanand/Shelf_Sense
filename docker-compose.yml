@@ -78,8 +78,8 @@ services:
       - ./flask_app/filtering.py:/app/filtering.py
       - ./flask_app/templates:/app/templates
       - ./flask_app/static:/app/static
-      # outputs/ is shared  Flask writes visualizations; only Flask serves them
-      - outputs_vol:/app/outputs
+      # outputs/ bind mount — visualizations are saved to host outputs/ folder
+      - ./outputs:/app/outputs
     ports:
       - "5000:5000"
     depends_on:
@@ -88,8 +88,4 @@ services:
       grouping:
         condition: service_healthy
     restart: unless-stopped
-
-volumes:
-  outputs_vol:
-    driver: local
 
