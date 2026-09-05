@@ -35,7 +35,7 @@ log = logging.getLogger(__name__)
 app = Flask(__name__)
 
 # ── Config ────────────────────────────────────────────────────────────────────
-CLUSTER_THRESHOLD = float(os.environ.get("CLUSTER_THRESHOLD", "0.35"))
+CLUSTER_THRESHOLD = os.environ.get("CLUSTER_THRESHOLD", "auto").strip()
 DINO_WEIGHT       = float(os.environ.get("DINO_WEIGHT", "0.70"))
 COLOR_WEIGHT      = float(os.environ.get("COLOR_WEIGHT", "0.30"))
 PORT              = int(os.environ.get("PORT", "5002"))
@@ -153,27 +153,89 @@ def _extract_color_histograms(crops: list[Image.Image], h_bins: int = 8, s_bins:
     return np.array(features, dtype=np.float32)
 
 
+def _compute_adaptive_threshold(
+    dist_matrix: np.ndarray,
+    min_thresh: float = 0.16,
+    max_thresh: float = 0.38,
+) -> float:
+    """
+    Dynamically self-calibrates an optimal clustering distance threshold for any
+    shelf category (e.g. laundry pouches vs wine/whiskey bottles) using the
+    bimodal separation and k-NN intra-cluster distribution of the image.
+    """
+    n = dist_matrix.shape[0]
+    if n <= 1:
+        return 0.30
+    if n == 2:
+        return float(np.clip(dist_matrix[0, 1] * 0.9, min_thresh, max_thresh))
+
+    # Mask diagonal to find nearest neighbor distances
+    D = dist_matrix.copy()
+    np.fill_diagonal(D, np.inf)
+
+    # 1. Intra-cluster nearest-neighbor distribution
+    min_dists = np.min(D, axis=1)
+    # The 75th percentile of nearest neighbors captures intra-brand variance (facings + glare)
+    q75 = float(np.percentile(min_dists, 75))
+    knn_estimate = q75 * 1.35
+
+    # 2. Otsu valley threshold on pairwise distances
+    triu_idx = np.triu_indices(n, k=1)
+    pairwise = dist_matrix[triu_idx]
+    valid_pairwise = pairwise[pairwise <= 0.65]
+
+    otsu_estimate = 0.30
+    if len(valid_pairwise) >= 10:
+        hist, bin_edges = np.histogram(valid_pairwise, bins=60, range=(0.0, 0.65))
+        bin_centers = (bin_edges[:-1] + bin_edges[1:]) / 2.0
+        total = len(valid_pairwise)
+        current_max = 0.0
+        weight1 = 0
+        sum1 = 0.0
+        total_sum = np.sum(hist * bin_centers)
+
+        for i in range(len(hist)):
+            weight1 += hist[i]
+            if weight1 == 0:
+                continue
+            weight2 = total - weight1
+            if weight2 == 0:
+                break
+            sum1 += hist[i] * bin_centers[i]
+            mean1 = sum1 / weight1
+            mean2 = (total_sum - sum1) / weight2
+            var_between = weight1 * weight2 * ((mean1 - mean2) ** 2)
+            if var_between > current_max:
+                current_max = var_between
+                otsu_estimate = float(bin_centers[i])
+
+    # Blend the nearest-neighbor estimate and Otsu boundary
+    adaptive_thresh = 0.55 * knn_estimate + 0.45 * otsu_estimate
+    calibrated = float(np.clip(adaptive_thresh, min_thresh, max_thresh))
+    return round(calibrated, 3)
+
+
 def _cluster(
     embeddings: np.ndarray,
     color_features: np.ndarray = None,
     threshold: float = None,
     dino_weight: float = None,
     color_weight: float = None,
-) -> list[int]:
+) -> tuple[list[int], float]:
     """
     Cluster products into brand groups using a weighted combination of:
       1. DINOv2 visual semantic embedding (DINO_WEIGHT, default 0.70)
       2. HSV 3D Color Histogram (COLOR_WEIGHT, default 0.30)
-    using Agglomerative Clustering with Average Linkage.
+    using Agglomerative Clustering with Average Linkage and Dynamic Auto-Thresholding.
     """
     from sklearn.metrics.pairwise import cosine_distances
     from sklearn.cluster import AgglomerativeClustering
 
     n = len(embeddings)
     if n == 0:
-        return []
+        return [], 0.0
     if n == 1:
-        return [0]
+        return [0], 0.0
 
     # Read dynamically configurable fusion weights
     dino_w = float(dino_weight if dino_weight is not None else os.environ.get("DINO_WEIGHT", str(DINO_WEIGHT)))
@@ -201,7 +263,24 @@ def _cluster(
     else:
         dist_matrix = d_dino
 
-    thresh = float(threshold if threshold is not None else os.environ.get("CLUSTER_THRESHOLD", str(CLUSTER_THRESHOLD)))
+    # Determine threshold (auto-adaptive or fixed)
+    raw_thresh = threshold if threshold is not None else os.environ.get("CLUSTER_THRESHOLD", "auto")
+    if isinstance(raw_thresh, str) and raw_thresh.strip().lower() in ("auto", "dynamic", "adaptive", ""):
+        thresh = _compute_adaptive_threshold(dist_matrix)
+        log.info(f"Dynamic auto-threshold self-calibrated for {n} products: {thresh:.3f}")
+    else:
+        try:
+            val = float(raw_thresh)
+            if val <= 0:
+                thresh = _compute_adaptive_threshold(dist_matrix)
+                log.info(f"Dynamic auto-threshold self-calibrated for {n} products: {thresh:.3f}")
+            else:
+                thresh = val
+                log.info(f"Using fixed threshold: {thresh:.3f}")
+        except ValueError:
+            thresh = _compute_adaptive_threshold(dist_matrix)
+            log.info(f"Dynamic auto-threshold self-calibrated for {n} products: {thresh:.3f}")
+
     log.info(f"Clustering {n} products using Agglomerative (Average Linkage, threshold={thresh}) ...")
     
     model = AgglomerativeClustering(
@@ -213,8 +292,8 @@ def _cluster(
     labels = model.fit_predict(dist_matrix)
     group_ids = [int(lbl) for lbl in labels]
     num_groups = len(set(group_ids))
-    log.info(f"✓ Agglomerative clustering produced {num_groups} brand groups.")
-    return group_ids
+    log.info(f"✓ Agglomerative clustering produced {num_groups} brand groups (threshold={thresh}).")
+    return group_ids, thresh
 
 
 # ── Endpoints ─────────────────────────────────────────────────────────────────
@@ -233,7 +312,7 @@ def group():
 
     # Empty detections — valid, return immediately
     if not detections:
-        return jsonify({"groups": [], "num_groups": 0}), 200
+        return jsonify({"groups": [], "num_groups": 0, "calibrated_threshold": 0.0}), 200
 
     # Validate and decode image
     try:
@@ -251,8 +330,8 @@ def group():
         # 3. Extract 3D HSV Color Histograms
         color_features = _extract_color_histograms(crops)
 
-        # 4. Cluster combined features → group_ids
-        group_ids = _cluster(
+        # 4. Cluster combined features → group_ids + calibrated threshold
+        group_ids, calibrated_thresh = _cluster(
             embeddings,
             color_features,
             threshold=data.get("threshold"),
@@ -270,7 +349,11 @@ def group():
             })
 
         num_groups = len(set(group_ids))
-        return jsonify({"groups": groups, "num_groups": num_groups}), 200
+        return jsonify({
+            "groups": groups,
+            "num_groups": num_groups,
+            "calibrated_threshold": calibrated_thresh,
+        }), 200
 
     except Exception as e:
         log.exception("Grouping error")

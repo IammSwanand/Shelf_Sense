@@ -35,7 +35,7 @@ services:
       dockerfile: Dockerfile
     container_name: infilect_grouping
     environment:
-      - CLUSTER_THRESHOLD=${CLUSTER_THRESHOLD:-0.35}
+      - CLUSTER_THRESHOLD=${CLUSTER_THRESHOLD:-auto}
       - DINO_WEIGHT=${DINO_WEIGHT:-0.70}
       - COLOR_WEIGHT=${COLOR_WEIGHT:-0.30}
       - DEVICE=${DEVICE:-auto}
