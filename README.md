@@ -20,27 +20,7 @@ A scalable microservice pipeline for automated retail shelf analysis:
 
 ## System Architecture
 
-```
-┌─────────────────────────────────────────────────────────────┐
-│                   Flask Orchestrator & UI                   │
-│                 (Port 5000: Web Dashboard)                  │
-└──────────────────────────────┬──────────────────────────────┘
-                               │
-               (1) POST /detect│ (3) Filtered Boxes
-                   (Raw Image) │     + POST /group
-                               ▼
-┌──────────────────────────────┐     ┌──────────────────────────────┐
-│       Detector Service       │     │       Grouping Service       │
-│    (YOLO11s-640, SKU-110K)   │     │ (Dual-Scale DINOv2 + 3D HSV  │
-│          Port 5001           │     │   Agglomerative Clustering)  │
-└──────────────┬───────────────┘     │          Port 5002           │
-               │ Raw Detections      └──────────────┬───────────────┘
-               ▼                                    │
-┌──────────────────────────────┐                    │ Group IDs
-│   In-Process Filter Module   │                    │
-│ (Aspect Ratio + Color + Row) ├────────────────────┘
-└──────────────────────────────┘
-```
+![Infilect System Architecture](docs/assets/architecture_diagram.png)
 
 ---
 
