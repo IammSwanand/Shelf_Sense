@@ -1,5 +1,5 @@
 """
-Grouping Service — Flask microservice that assigns brand group IDs
+Grouping Service  Flask microservice that assigns brand group IDs
 to detected product crops using DINOv2 embeddings + HSV Color Histograms
 fused into an Agglomerative Clustering (Average Linkage) model.
 
@@ -34,7 +34,7 @@ log = logging.getLogger(__name__)
 
 app = Flask(__name__)
 
-# ── Config ────────────────────────────────────────────────────────────────────
+#  Config 
 CLUSTER_THRESHOLD = os.environ.get("CLUSTER_THRESHOLD", "auto").strip()
 DINO_WEIGHT       = float(os.environ.get("DINO_WEIGHT", "0.70"))
 COLOR_WEIGHT      = float(os.environ.get("COLOR_WEIGHT", "0.30"))
@@ -43,7 +43,7 @@ PORT              = int(os.environ.get("PORT", "5002"))
 # Padding added around each crop (pixels in original image space)
 CROP_PAD = 5
 
-# ── Device selection (auto GPU, fall back to CPU, or override via DEVICE env) ─
+#  Device selection (auto GPU, fall back to CPU, or override via DEVICE env) 
 import torch as _torch
 
 
@@ -61,7 +61,7 @@ def _get_device() -> _torch.device:
 
 DEVICE = _get_device()
 
-# ── DINOv2 model singleton ────────────────────────────────────────────────────
+#  DINOv2 model singleton 
 _dino_model     = None
 _dino_processor = None
 
@@ -78,7 +78,7 @@ def _load_dino():
         _dino_model     = AutoModel.from_pretrained(model_name)
         _dino_model.to(DEVICE)   # GPU if available, else CPU
         _dino_model.eval()
-        log.info(f"✓ DINOv2 loaded on {DEVICE}.")
+        log.info(f" DINOv2 loaded on {DEVICE}.")
     except Exception as e:
         log.error(f"Failed to load DINOv2: {e}")
         raise
@@ -87,7 +87,7 @@ def _load_dino():
 _load_dino()
 
 
-# ── Helpers ───────────────────────────────────────────────────────────────────
+#  Helpers 
 def _decode_image(image_base64: str) -> Image.Image:
     img_bytes = base64.b64decode(image_base64)
     return Image.open(BytesIO(img_bytes)).convert("RGB")
@@ -146,7 +146,7 @@ def _embed_crops(crops: list[Image.Image]) -> np.ndarray:
     with torch.no_grad():
         outputs = _dino_model(**inputs)
 
-    # CLS token — move back to CPU for numpy/sklearn
+    # CLS token  move back to CPU for numpy/sklearn
     embeddings = outputs.last_hidden_state[:, 0, :].cpu().numpy().astype(np.float32)
 
     # L2 normalise so cosine distance = 1 - dot product
@@ -312,11 +312,11 @@ def _cluster_multimodal(
     labels = model.fit_predict(dist_matrix)
     group_ids = [int(lbl) for lbl in labels]
     num_groups = len(set(group_ids))
-    log.info(f"✓ Agglomerative clustering produced {num_groups} brand groups (threshold={thresh}).")
+    log.info(f" Agglomerative clustering produced {num_groups} brand groups (threshold={thresh}).")
     return group_ids, thresh
 
 
-# ── Endpoints ─────────────────────────────────────────────────────────────────
+#  Endpoints 
 @app.route("/health", methods=["GET"])
 def health():
     return jsonify({"status": "ok"}), 200
@@ -330,7 +330,7 @@ def group():
 
     detections = data.get("detections", [])
 
-    # Empty detections — valid, return immediately
+    # Empty detections  valid, return immediately
     if not detections:
         return jsonify({"groups": [], "num_groups": 0, "calibrated_threshold": 0.0}), 200
 
@@ -352,7 +352,7 @@ def group():
         # 3. Extract 3D HSV Color Histograms on the full branded region
         color_features = _extract_color_histograms(full_crops)
 
-        # 4. Cluster multi-scale multimodal features → group_ids + calibrated threshold
+        # 4. Cluster multi-scale multimodal features  group_ids + calibrated threshold
         group_ids, calibrated_thresh = _cluster_multimodal(
             full_embeddings,
             label_embeddings,
@@ -362,7 +362,7 @@ def group():
             color_weight=data.get("color_weight"),
         )
 
-        # 5. Build response — 1:1 aligned with input detections
+        # 5. Build response  1:1 aligned with input detections
         groups = []
         for det, gid in zip(detections, group_ids):
             groups.append({

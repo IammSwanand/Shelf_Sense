@@ -88,11 +88,11 @@ def main():
         except Exception as e:
             row = {
                 "image":                  img_path.name[:38],
-                "num_products":           "—",
-                "num_groups":             "—",
-                "num_filtered_ratecards": "—",
-                "latency_ms":             "—",
-                "model_used":             "—",
+                "num_products":           "",
+                "num_groups":             "",
+                "num_filtered_ratecards": "",
+                "latency_ms":             "",
+                "model_used":             "",
                 "status":                 f"ERR: {str(e)[:20]}",
             }
 
@@ -106,11 +106,11 @@ def main():
         writer.writeheader()
         writer.writerows(rows)
 
-    print(f"\n✓ Results saved to {OUTPUT_CSV}")
+    print(f"\n Results saved to {OUTPUT_CSV}")
 
     # Sanity summary
     ok_rows = [r for r in rows if r["status"] == "OK"]
-    print(f"\n── Sanity checks ({'all OK' if len(ok_rows)==len(rows) else 'some failed'}) ──")
+    print(f"\n Sanity checks ({'all OK' if len(ok_rows)==len(rows) else 'some failed'}) ")
     products = [r["num_products"] for r in ok_rows if isinstance(r["num_products"], int)]
     groups   = [r["num_groups"]   for r in ok_rows if isinstance(r["num_groups"], int)]
     if products:

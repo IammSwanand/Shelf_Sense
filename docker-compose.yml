@@ -1,6 +1,6 @@
 services:
 
-  # ── Detector Service (YOLO11-s640 SKU-110K) ─────────────────────────────────
+  #  Detector Service (YOLO11-s640 SKU-110K) 
   detector:
     build:
       context: ./detector_service
@@ -14,7 +14,7 @@ services:
       - DEVICE=${DEVICE:-auto}
       - PORT=5001
     volumes:
-      # Mount weights read-only — weights remain local, not baked into the image
+      # Mount weights read-only  weights remain local, not baked into the image
       - ./detector_service/weights:/app/weights:ro
       - ./detector_service/app.py:/app/app.py
     ports:
@@ -28,7 +28,7 @@ services:
       start_period: 40s
     restart: unless-stopped
 
-  # ── Grouping Service (DINOv2 + HSV Multimodal Agglomerative Clustering) ───
+  #  Grouping Service (DINOv2 + HSV Multimodal Agglomerative Clustering) 
   grouping:
     build:
       context: ./grouping_service
@@ -54,7 +54,7 @@ services:
       start_period: 60s   # DINOv2 download on first start takes longer
     restart: unless-stopped
 
-  # ── Flask Orchestrator ──────────────────────────────────────────────────────
+  #  Flask Orchestrator 
   flask:
     build:
       context: ./flask_app
@@ -66,7 +66,7 @@ services:
       - DOWNSTREAM_TIMEOUT=${DOWNSTREAM_TIMEOUT:-60}
       - OUTPUTS_DIR=/app/outputs
       - PORT=5000
-      # Rate-card filter thresholds (all optional — defaults are in filtering.py)
+      # Rate-card filter thresholds (all optional  defaults are in filtering.py)
       - RATECARD_MAX_ASPECT=${RATECARD_MAX_ASPECT:-2.5}
       - RATECARD_MAX_HEIGHT_FRAC=${RATECARD_MAX_HEIGHT_FRAC:-0.06}
       - RATECARD_MIN_COLOR_FRACTION=${RATECARD_MIN_COLOR_FRACTION:-0.60}
@@ -77,7 +77,7 @@ services:
       - ./flask_app/filtering.py:/app/filtering.py
       - ./flask_app/templates:/app/templates
       - ./flask_app/static:/app/static
-      # outputs/ is shared — Flask writes visualizations; only Flask serves them
+      # outputs/ is shared  Flask writes visualizations; only Flask serves them
       - outputs_vol:/app/outputs
     ports:
       - "5000:5000"

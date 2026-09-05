@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Infilect — Retail Shelf Analyzer</title>
+  <title>Infilect  Retail Shelf Analyzer</title>
   <meta name="description" content="AI-powered retail shelf product detection and brand grouping pipeline by Infilect." />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
@@ -50,16 +50,16 @@
           Choose File
         </label>
         <input type="file" id="file-input" accept="image/*" hidden />
-        <p class="upload-formats">Supports JPG, PNG, WEBP — up to 20 MB</p>
+        <p class="upload-formats">Supports JPG, PNG, WEBP  up to 20 MB</p>
       </div>
 
       <!-- Preview before analyze -->
       <div class="preview-wrap hidden" id="preview-wrap">
         <img id="preview-img" class="preview-img" src="" alt="Selected shelf image" />
         <div class="preview-actions">
-          <button class="btn btn-outline" id="clear-btn">✕ Clear</button>
+          <button class="btn btn-outline" id="clear-btn"> Clear</button>
           <button class="btn btn-primary" id="analyze-btn">
-            <span class="btn-icon">⚡</span> Analyze Shelf
+            <span class="btn-icon"></span> Analyze Shelf
           </button>
         </div>
       </div>
@@ -100,23 +100,23 @@
       <!-- Stats bar -->
       <div class="stats-bar">
         <div class="stat-card">
-          <div class="stat-value" id="stat-products">—</div>
+          <div class="stat-value" id="stat-products"></div>
           <div class="stat-label">Products</div>
         </div>
         <div class="stat-card">
-          <div class="stat-value" id="stat-groups">—</div>
+          <div class="stat-value" id="stat-groups"></div>
           <div class="stat-label">Brand Groups</div>
         </div>
         <div class="stat-card">
-          <div class="stat-value" id="stat-filtered">—</div>
+          <div class="stat-value" id="stat-filtered"></div>
           <div class="stat-label">Rate Cards Removed</div>
         </div>
         <div class="stat-card">
-          <div class="stat-value" id="stat-latency">—</div>
+          <div class="stat-value" id="stat-latency"></div>
           <div class="stat-label">Latency (ms)</div>
         </div>
         <div class="stat-card">
-          <div class="stat-value stat-model" id="stat-model">—</div>
+          <div class="stat-value stat-model" id="stat-model"></div>
           <div class="stat-label">Model</div>
         </div>
       </div>
@@ -191,7 +191,7 @@
 
       <!-- Analyze again -->
       <div class="retry-wrap">
-        <button class="btn btn-outline" id="retry-btn">← Analyze Another Image</button>
+        <button class="btn btn-outline" id="retry-btn"> Analyze Another Image</button>
       </div>
     </section>
 
@@ -228,7 +228,7 @@
 
     let selectedFile = null;
 
-    // ── Drag & drop ──────────────────────────────────────────────────────────
+    //  Drag & drop 
     dropZone.addEventListener('dragover', e => {
       e.preventDefault();
       dropZone.classList.add('drag-over');
@@ -259,7 +259,7 @@
       previewImg.src = '';
     });
 
-    // ── Analyze ──────────────────────────────────────────────────────────────
+    //  Analyze 
     analyzeBtn.addEventListener('click', runAnalyze);
 
     function showError(msg) {
@@ -320,16 +320,16 @@
         }
 
         // Populate results
-        document.getElementById('stat-products').textContent  = data.num_products ?? '—';
-        document.getElementById('stat-groups').textContent    = data.num_groups ?? '—';
-        document.getElementById('stat-filtered').textContent  = data.num_filtered_ratecards ?? '—';
-        document.getElementById('stat-latency').textContent   = data.latency_ms != null ? `${data.latency_ms}` : '—';
-        document.getElementById('stat-model').textContent     = data.model_used ?? '—';
+        document.getElementById('stat-products').textContent  = data.num_products ?? '';
+        document.getElementById('stat-groups').textContent    = data.num_groups ?? '';
+        document.getElementById('stat-filtered').textContent  = data.num_filtered_ratecards ?? '';
+        document.getElementById('stat-latency').textContent   = data.latency_ms != null ? `${data.latency_ms}` : '';
+        document.getElementById('stat-model').textContent     = data.model_used ?? '';
 
         document.getElementById('viz-img').src = data.visualization_url + '?t=' + Date.now();
         document.getElementById('json-body').textContent = JSON.stringify(data, null, 2);
 
-        // ── Render Brand Groups Breakdown & Color Legend ─────────────────────
+        //  Render Brand Groups Breakdown & Color Legend 
         const groupsGrid = document.getElementById('groups-grid');
         const groupsBadge = document.getElementById('groups-count-badge');
         groupsGrid.innerHTML = '';
@@ -386,7 +386,7 @@
       }
     }
 
-    // ── Lightbox Zoom Modal ──────────────────────────────────────────────────
+    //  Lightbox Zoom Modal 
     const lightboxModal   = document.getElementById('lightbox-modal');
     const lightboxImg     = document.getElementById('lightbox-img');
     const lightboxBackdrop= document.getElementById('lightbox-backdrop');
@@ -430,7 +430,7 @@
     copyBtn.addEventListener('click', () => {
       const text = document.getElementById('json-body').textContent;
       navigator.clipboard.writeText(text).then(() => {
-        copyBtn.textContent = '✓ Copied!';
+        copyBtn.textContent = ' Copied!';
         setTimeout(() => copyBtn.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg> Copy`, 2000);
       });
     });
@@ -449,7 +449,7 @@
             </svg>
             Open Original Image
           </a>
-          <button class="btn-tool btn-close" id="lightbox-close" title="Close (Esc)">✕</button>
+          <button class="btn-tool btn-close" id="lightbox-close" title="Close (Esc)"></button>
         </div>
       </div>
       <div class="lightbox-img-wrap">

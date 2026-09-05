@@ -11,7 +11,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY . .
 
-# outputs/ is a shared volume mounted by docker-compose — not stored in image
+# outputs/ is a shared volume mounted by docker-compose  not stored in image
 VOLUME ["/app/outputs"]
 
 EXPOSE 5000

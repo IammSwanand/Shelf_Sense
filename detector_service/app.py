@@ -1,5 +1,5 @@
 """
-Detector Service — Flask microservice wrapping YOLO11-s640 (SKU-110K weights).
+Detector Service  Flask microservice wrapping YOLO11-s640 (SKU-110K weights).
 
 Environment variables (all optional, have defaults):
   DETECTOR_WEIGHTS_PATH   Path to YOLO weights    (default: /app/weights/best.pt)
@@ -22,13 +22,13 @@ log = logging.getLogger(__name__)
 
 app = Flask(__name__)
 
-# ── Config from environment ───────────────────────────────────────────────────
+#  Config from environment 
 CONF_THRESHOLD  = float(os.environ.get("DET_CONF_THRESHOLD", "0.25"))
 IOU_THRESHOLD   = float(os.environ.get("DET_IOU_THRESHOLD", "0.45"))
 IMG_SIZE        = int(os.environ.get("DET_IMG_SIZE", "640"))
 PORT            = int(os.environ.get("PORT", "5001"))
 
-# ── Device selection (auto GPU, fall back to CPU, or override via DEVICE env) ─
+#  Device selection (auto GPU, fall back to CPU, or override via DEVICE env) 
 import torch as _torch
 
 
@@ -46,7 +46,7 @@ def _get_device():
 
 DEVICE = _get_device()
 
-# ── Model singleton (loaded once at startup) ──────────────────────────────────
+#  Model singleton (loaded once at startup) 
 _model      = None   # YOLO model object
 _model_used = "sku110k-yolo11-s640"
 
@@ -120,10 +120,10 @@ except Exception as err:
     log.error(f"Failed to load YOLO11-s640 model: {err}")
 
 
-# ── Endpoints ─────────────────────────────────────────────────────────────────
+#  Endpoints 
 @app.route("/health", methods=["GET"])
 def health():
-    # API_SPEC.md §2: exactly {"status": "ok", "model_loaded": true}
+    # API_SPEC.md 2: exactly {"status": "ok", "model_loaded": true}
     return jsonify({
         "status":       "ok",
         "model_loaded": _model is not None,

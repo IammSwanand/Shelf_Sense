@@ -1,4 +1,4 @@
-/* ── Reset & Base ─────────────────────────────────────────────────────────── */
+/*  Reset & Base  */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
 :root {
@@ -27,7 +27,7 @@ html, body {
   -webkit-font-smoothing: antialiased;
 }
 
-/* ── Background orbs ─────────────────────────────────────────────────────── */
+/*  Background orbs  */
 .bg-orbs { position: fixed; inset: 0; overflow: hidden; pointer-events: none; z-index: 0; }
 .orb {
   position: absolute;
@@ -41,7 +41,7 @@ html, body {
 .orb-3 { width: 350px; height: 350px; background: #06b6d4; top: 40%; left: 55%; animation-delay: -12s; }
 @keyframes drift { from { transform: translate(0,0) scale(1); } to { transform: translate(40px, 30px) scale(1.08); } }
 
-/* ── Header ──────────────────────────────────────────────────────────────── */
+/*  Header  */
 .header {
   position: relative; z-index: 10;
   display: flex; align-items: center; justify-content: space-between;
@@ -65,7 +65,7 @@ html, body {
   background: rgba(99,102,241,0.08);
 }
 
-/* ── Main ────────────────────────────────────────────────────────────────── */
+/*  Main  */
 .main {
   position: relative; z-index: 1;
   max-width: 900px; margin: 0 auto;
@@ -73,7 +73,7 @@ html, body {
 }
 .hidden { display: none !important; }
 
-/* ── Upload section ──────────────────────────────────────────────────────── */
+/*  Upload section  */
 .title {
   font-size: clamp(1.8rem, 4vw, 2.8rem);
   font-weight: 700; letter-spacing: -0.03em;
@@ -105,7 +105,7 @@ html, body {
 .upload-sub { color: var(--text-muted); font-size: 0.88rem; margin-bottom: 20px; }
 .upload-formats { margin-top: 16px; font-size: 0.78rem; color: var(--text-muted); }
 
-/* ── Preview ─────────────────────────────────────────────────────────────── */
+/*  Preview  */
 .preview-wrap { margin-top: 28px; text-align: center; }
 .preview-img {
   max-width: 100%; max-height: 420px;
@@ -115,7 +115,7 @@ html, body {
 }
 .preview-actions { display: flex; gap: 12px; justify-content: center; }
 
-/* ── Buttons ─────────────────────────────────────────────────────────────── */
+/*  Buttons  */
 .btn {
   display: inline-flex; align-items: center; gap: 8px;
   padding: 12px 28px; border-radius: var(--radius-sm);
@@ -135,7 +135,7 @@ html, body {
 }
 .btn-outline:hover { border-color: var(--accent); color: var(--accent); }
 
-/* ── Loading ─────────────────────────────────────────────────────────────── */
+/*  Loading  */
 .loading-section { text-align: center; padding: 80px 0; }
 .spinner-wrap { margin-bottom: 52px; }
 .spinner {
@@ -173,7 +173,7 @@ html, body {
 @keyframes pulse { 0%,100%{transform:scale(1)} 50%{transform:scale(1.4)} }
 .step-line { width: 40px; height: 1px; background: var(--border); margin-bottom: 20px; }
 
-/* ── Stats bar ───────────────────────────────────────────────────────────── */
+/*  Stats bar  */
 .stats-bar {
   display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 28px;
 }
@@ -193,7 +193,7 @@ html, body {
 .stat-model { font-size: 0.72rem !important; word-break: break-all; }
 .stat-label { font-size: 0.75rem; color: var(--text-muted); font-weight: 500; text-transform: uppercase; letter-spacing: 0.07em; }
 
-/* ── Visualization ───────────────────────────────────────────────────────── */
+/*  Visualization  */
 .viz-wrap {
   background: var(--bg-card);
   border: 1px solid var(--border);
@@ -266,7 +266,7 @@ html, body {
   filter: brightness(1.03);
 }
 
-/* ── Brand Groups Breakdown panel ────────────────────────────────────────── */
+/*  Brand Groups Breakdown panel  */
 .groups-panel {
   background: var(--bg-card);
   border: 1px solid var(--border);
@@ -370,7 +370,7 @@ html, body {
   padding: 12px;
 }
 
-/* ── JSON panel ──────────────────────────────────────────────────────────── */
+/*  JSON panel  */
 .json-panel {
   background: var(--bg-card-2); border: 1px solid var(--border);
   border-radius: var(--radius); overflow: hidden; margin-bottom: 28px;
@@ -398,10 +398,10 @@ html, body {
   line-height: 1.7;
 }
 
-/* ── Retry ───────────────────────────────────────────────────────────────── */
+/*  Retry  */
 .retry-wrap { text-align: center; }
 
-/* ── Error toast ─────────────────────────────────────────────────────────── */
+/*  Error toast  */
 .error-toast {
   position: fixed; bottom: 28px; left: 50%; transform: translateX(-50%);
   display: flex; align-items: center; gap: 10px;
@@ -412,7 +412,7 @@ html, body {
 }
 @keyframes slideUp { from { transform: translateX(-50%) translateY(20px); opacity:0; } to { transform: translateX(-50%) translateY(0); opacity:1; } }
 
-/* ── Lightbox Modal ──────────────────────────────────────────────────────── */
+/*  Lightbox Modal  */
 .lightbox-modal {
   position: fixed;
   inset: 0;

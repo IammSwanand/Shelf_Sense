@@ -1,11 +1,11 @@
 """
-Flask Orchestrator — main entrypoint for the Infilect AI pipeline.
+Flask Orchestrator  main entrypoint for the Infilect AI pipeline.
 
 Routes:
-  GET  /              → HTML upload UI
-  GET  /health        → {"status": "ok"}
-  POST /api/analyze   → full pipeline: detect → filter → group → visualize
-  GET  /outputs/<fn>  → serve saved visualization images
+  GET  /               HTML upload UI
+  GET  /health         {"status": "ok"}
+  POST /api/analyze    full pipeline: detect  filter  group  visualize
+  GET  /outputs/<fn>   serve saved visualization images
 
 Environment variables:
   DETECTOR_URL        URL of the detector service  (default: http://localhost:5001)
@@ -34,7 +34,7 @@ log = logging.getLogger(__name__)
 
 app = Flask(__name__)
 
-# ── Config ────────────────────────────────────────────────────────────────────
+#  Config 
 DETECTOR_URL       = os.environ.get("DETECTOR_URL",       "http://localhost:5001")
 GROUPING_URL       = os.environ.get("GROUPING_URL",       "http://localhost:5002")
 DOWNSTREAM_TIMEOUT = int(os.environ.get("DOWNSTREAM_TIMEOUT", "60"))
@@ -42,7 +42,7 @@ PORT               = int(os.environ.get("PORT", "5000"))
 OUTPUTS_DIR        = Path(os.environ.get("OUTPUTS_DIR",  "/app/outputs"))
 OUTPUTS_DIR.mkdir(parents=True, exist_ok=True)
 
-# ── Colour palette (high-contrast vibrant colors per brand group) ────────────
+#  Colour palette (high-contrast vibrant colors per brand group) 
 _PALETTE = [
     "#2563EB",  # Royal Blue
     "#10B981",  # Emerald Green
@@ -68,7 +68,7 @@ def _hex_to_rgb(hex_color: str) -> tuple[int, int, int]:
     return tuple(int(h[i:i+2], 16) for i in (0, 2, 4))
 
 
-# ── Helpers ───────────────────────────────────────────────────────────────────
+#  Helpers 
 def _image_from_request() -> tuple[Image.Image, str, str]:
     """
     Extract the image from multipart or JSON body.
@@ -189,7 +189,7 @@ def _draw_visualization(
     return filename
 
 
-# ── Routes ────────────────────────────────────────────────────────────────────
+#  Routes 
 @app.route("/", methods=["GET"])
 def index():
     return render_template("index.html")
@@ -209,7 +209,7 @@ def serve_output(filename):
 def analyze():
     t_start = time.perf_counter()
 
-    # ── 1. Extract image ──────────────────────────────────────────────────────
+    #  1. Extract image 
     pil_img, image_base64, err = _image_from_request()
     if err:
         return jsonify({"error": err}), 400
@@ -217,7 +217,7 @@ def analyze():
     width, height = pil_img.size
     image_id = hashlib.md5(image_base64[:512].encode()).hexdigest()[:12]
 
-    # ── 2. Call detector ──────────────────────────────────────────────────────
+    #  2. Call detector 
     det_resp, err = _call_detector(image_base64)
     if err:
         return jsonify({"error": f"detector service error: {err}"}), 502
@@ -225,11 +225,11 @@ def analyze():
     raw_detections = det_resp.get("detections", [])
     model_used     = det_resp.get("model_used", "unknown")
 
-    # ── 3. Filter rate cards (in-process, no network hop) ────────────────────
+    #  3. Filter rate cards (in-process, no network hop) 
     kept, dropped = remove_rate_cards(pil_img, raw_detections)
     num_filtered  = len(dropped)
 
-    # ── 4. Call grouping (on filtered detections only) ────────────────────────
+    #  4. Call grouping (on filtered detections only) 
     if kept:
         grp_resp, err = _call_grouping(image_base64, kept)
         if err:
@@ -239,11 +239,11 @@ def analyze():
     else:
         groups, num_groups = [], 0
 
-    # ── 5. Draw and save visualization ───────────────────────────────────────
+    #  5. Draw and save visualization 
     viz_img  = pil_img.copy()
     viz_file = _draw_visualization(viz_img, groups, image_id)
 
-    # ── 6. Assemble final response ────────────────────────────────────────────
+    #  6. Assemble final response 
     latency_ms = round((time.perf_counter() - t_start) * 1000, 1)
 
     detections_out = [

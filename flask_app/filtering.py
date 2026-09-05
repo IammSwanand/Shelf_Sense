@@ -4,21 +4,21 @@ Rate-Card / Price-Tag Filtering Module
 Removes non-product detections (price tags, rate cards, shelf edge labels,
 promotional stickers) from the detector's raw output before grouping.
 
-Three complementary stages run in sequence — cheap enough for the full set of
+Three complementary stages run in sequence  cheap enough for the full set of
 boxes on a shelf image in < 5 ms total:
 
-  Stage A — Geometric heuristics (always on, ~free)
+  Stage A  Geometric heuristics (always on, ~free)
       Flags boxes that are too flat (wide relative to height) AND too short
-      in absolute terms — real products are taller than price tags.
+      in absolute terms  real products are taller than price tags.
 
-  Stage B — Color heuristics (on by default, cheap)
+  Stage B  Color heuristics (on by default, cheap)
       Checks the fraction of crop pixels in orange/red/yellow HSV ranges.
       Price tags in retail images are almost always these attention colours.
 
-  Stage C — Row/position clustering (catches edge cases)
+  Stage C  Row/position clustering (catches edge cases)
       Groups detections into horizontal shelf rows by y-center.
       Within each row flags boxes whose height is far below the row median
-      AND whose y-center sits at the bottom edge of the row — i.e. the
+      AND whose y-center sits at the bottom edge of the row  i.e. the
       shelf lip where price strips live.
 
 Combination rule (avoids false positives on legitimate small/bright products):
@@ -30,14 +30,14 @@ so they can be calibrated without code changes:
     RATECARD_MAX_HEIGHT_FRAC    (default 0.06)
     RATECARD_MIN_COLOR_FRACTION (default 0.60)
     RATECARD_ROW_HEIGHT_RATIO   (default 0.50)
-    RATECARD_DEBUG              (default false) — attach filter_reason to drops
+    RATECARD_DEBUG              (default false)  attach filter_reason to drops
 """
 
 import os
 import numpy as np
 from PIL import Image
 
-# ── Threshold configuration ───────────────────────────────────────────────────
+#  Threshold configuration 
 MAX_ASPECT         = float(os.environ.get("RATECARD_MAX_ASPECT",          "2.5"))
 MAX_HEIGHT_FRAC    = float(os.environ.get("RATECARD_MAX_HEIGHT_FRAC",     "0.06"))
 MIN_COLOR_FRAC     = float(os.environ.get("RATECARD_MIN_COLOR_FRACTION",  "0.60"))
@@ -48,7 +48,7 @@ def _debug() -> bool:
     return os.environ.get("RATECARD_DEBUG", "false").lower() == "true"
 
 # HSV ranges for "tag-like" colours (orange, red, yellow)
-# Format: [(h_lo, h_hi, s_lo, v_lo), ...]  — h in [0,180] OpenCV convention
+# Format: [(h_lo, h_hi, s_lo, v_lo), ...]   h in [0,180] OpenCV convention
 _TAG_HSV_RANGES = [
     (0,   15,  120, 80),   # red-orange low hue
     (165, 180, 120, 80),   # red wrap-around high hue
@@ -58,14 +58,14 @@ _TAG_HSV_RANGES = [
 ]
 
 
-# ── Internal helpers ──────────────────────────────────────────────────────────
+#  Internal helpers 
 def _box_wh(box: list[float]) -> tuple[float, float]:
     x1, y1, x2, y2 = box
     return (x2 - x1), (y2 - y1)
 
 
 def _stage_a(box: list[float], img_h: int) -> bool:
-    """True = geometrically 'flat and short' → rate-card candidate."""
+    """True = geometrically 'flat and short'  rate-card candidate."""
     bw, bh = _box_wh(box)
     if bh <= 0:
         return False
@@ -128,7 +128,7 @@ def _cluster_rows(detections: list[dict], img_h: int) -> dict[int, list[int]]:
 def _stage_c(det_idx: int, detections: list[dict], rows: dict[int, list[int]], img_h: int) -> bool:
     """
     True = box height is far below its row's median AND sits at the bottom
-    edge of the row band — the classic shelf-lip position of a price strip.
+    edge of the row band  the classic shelf-lip position of a price strip.
     """
     # Find which row this detection belongs to
     containing_row = None
@@ -167,7 +167,7 @@ def _stage_c(det_idx: int, detections: list[dict], rows: dict[int, list[int]], i
     return height_flag and position_flag
 
 
-# ── Public API ────────────────────────────────────────────────────────────────
+#  Public API 
 def remove_rate_cards(
     image: Image.Image,
     detections: list[dict],
@@ -202,7 +202,7 @@ def remove_rate_cards(
         flag_a = _stage_a(box, img_h)
 
         if not flag_a:
-            # No geometric flag → keep without running B or C
+            # No geometric flag  keep without running B or C
             if _debug():
                 det = {**det, "filter_reason": None}
             kept.append(det)
@@ -212,7 +212,7 @@ def remove_rate_cards(
         flag_c = _stage_c(i, detections, rows, img_h)
 
         if flag_b or flag_c:
-            # Geometric + corroborating signal → drop
+            # Geometric + corroborating signal  drop
             if _debug():
                 reason_parts = []
                 reason_parts.append("aspect")
@@ -223,7 +223,7 @@ def remove_rate_cards(
                 det = {**det, "filter_reason": "+".join(reason_parts)}
             dropped.append(det)
         else:
-            # Geometric flag only — insufficient evidence, keep
+            # Geometric flag only  insufficient evidence, keep
             if _debug():
                 det = {**det, "filter_reason": None}
             kept.append(det)
