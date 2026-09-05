@@ -34,9 +34,6 @@ Verify that `sku110k-yolo11-s640.pt` exists in `detector_service/weights/` (down
 ### 2. Run with Docker Compose (Recommended)
 
 ```bash
-# Clone/navigate to project
-cd infilect_pipeline
-
 # Start all microservices (CPU Mode)
 docker compose up --build -d
 ```

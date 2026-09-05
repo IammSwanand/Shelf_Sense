@@ -20,11 +20,6 @@ Runs all three microservices in isolated, reproducible Docker containers.
 - **Storage Needed**: ~3.5 GB (CPU) / ~10-12 GB (GPU with CUDA runtime)
 - **Setup Time**: ~2-4 minutes (builds images & starts all services in background)
 
-Navigate to the project directory:
-```bash
-cd infilect_pipeline
-```
-
 ### 1.1 CPU Mode (Default)
 Builds lightweight containers using PyTorch CPU wheels. Works on any standard computer without GPU setup:
 
@@ -64,7 +59,6 @@ Runs the three microservices directly on your host machine without Docker.
 Always create and activate an isolated virtual environment before installing packages:
 
 ```bash
-cd infilect_pipeline
 python -m venv .venv
 
 # Activate the virtual environment:
