@@ -41,10 +41,10 @@ See [`ARCHITECTURE.md`](../ARCHITECTURE.md), [`API_SPEC.md`](../API_SPEC.md), an
 ### 1. Place the model weights
 
 ```
-detector_service/weights/best.pt
+detector_service/weights/sku110k-yolo11-s640.pt
 ```
 
-The weights file (`sku110k-yolo11-s640.pt`) must be present at the path above **before** running.
+The weights file `sku110k-yolo11-s640.pt` is located in `detector_service/weights/`.
 
 ### 2. Copy the environment file (optional)
 
@@ -159,7 +159,7 @@ infilect_pipeline/
 │   └── Dockerfile
 ├── detector_service/
 │   ├── app.py              ← YOLO11-s640 SKU-110K detector
-│   ├── weights/best.pt     ← place your weights here
+│   ├── weights/sku110k-yolo11-s640.pt ← SKU-110K detector weights
 │   ├── requirements.txt
 │   └── Dockerfile
 ├── grouping_service/

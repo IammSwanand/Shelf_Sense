@@ -55,18 +55,18 @@ def _find_weights_path() -> str:
     """Find the YOLO11-s640 weight file across common locations."""
     candidate_paths = [
         os.environ.get("DETECTOR_WEIGHTS_PATH"),
-        "/app/weights/best.pt",
         "/app/weights/sku110k-yolo11-s640.pt",
-        os.path.join(os.path.dirname(__file__), "weights", "best.pt"),
         os.path.join(os.path.dirname(__file__), "weights", "sku110k-yolo11-s640.pt"),
         os.path.join(os.path.dirname(__file__), "..", "..", "sku110k-yolo11-s640.pt"),
         os.path.join(os.path.dirname(__file__), "..", "sku110k-yolo11-s640.pt"),
+        "/app/weights/best.pt",
+        os.path.join(os.path.dirname(__file__), "weights", "best.pt"),
         "sku110k-yolo11-s640.pt",
     ]
     for path in candidate_paths:
         if path and os.path.exists(path):
             return os.path.abspath(path)
-    return os.environ.get("DETECTOR_WEIGHTS_PATH", "/app/weights/best.pt")
+    return os.environ.get("DETECTOR_WEIGHTS_PATH", "/app/weights/sku110k-yolo11-s640.pt")
 
 
 def _load_model():

@@ -8,7 +8,7 @@ services:
       args:
         TORCH_INDEX_URL: ${TORCH_INDEX_URL:-https://download.pytorch.org/whl/cpu}
     environment:
-      - DETECTOR_WEIGHTS_PATH=/app/weights/best.pt
+      - DETECTOR_WEIGHTS_PATH=/app/weights/sku110k-yolo11-s640.pt
       - DET_CONF_THRESHOLD=${DET_CONF_THRESHOLD:-0.25}
       - DET_IOU_THRESHOLD=${DET_IOU_THRESHOLD:-0.45}
       - DET_IMG_SIZE=${DET_IMG_SIZE:-640}
