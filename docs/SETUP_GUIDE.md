@@ -59,27 +59,30 @@ Runs the three microservices directly on your host machine without Docker.
 - **Storage Needed**: ~2.5 GB (CPU venv) / ~5.5 GB (GPU venv with CUDA wheels)
 - **Setup Time**: ~1-2 minutes (pip package installation)
 
-### 2.1 Environment Setup
+### 2.1 Virtual Environment Setup (Recommended)
 
-Navigate to the project directory and create a virtual environment:
+Always create and activate an isolated virtual environment before installing packages:
 
 ```bash
 cd infilect_pipeline
 python -m venv .venv
 
-# Activate environment:
-# On Windows:
+# Activate the virtual environment:
+# On Windows (PowerShell / Command Prompt):
 .venv\Scripts\activate
-# On Linux/macOS:
+
+# On Linux / macOS (Bash / Zsh):
 source .venv/bin/activate
 ```
 
-#### Sub-type A: CPU Mode (Default)
+#### Install Dependencies:
+
+**Option A: CPU Mode (Default)**
 ```bash
 pip install -r requirements.txt
 ```
 
-#### Sub-type B: GPU / CUDA Mode
+**Option B: GPU / CUDA Mode (Optional)**
 ```bash
 pip install torch torchvision --index-url https://download.pytorch.org/whl/cu126
 pip install -r requirements.txt

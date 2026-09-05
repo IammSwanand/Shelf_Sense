@@ -43,7 +43,27 @@ docker compose up --build -d
 
 *(For GPU acceleration with CUDA 12.6, run: `TORCH_INDEX_URL=https://download.pytorch.org/whl/cu126 docker compose up --build -d`)*
 
-### 3. Open Web Dashboard
+### 3. Alternative: Run Locally (Without Docker)
+
+```bash
+# 1. Create and activate an isolated virtual environment
+python -m venv .venv
+
+# On Windows:
+.venv\Scripts\activate
+# On Linux/macOS:
+source .venv/bin/activate
+
+# 2. Install dependencies
+pip install -r requirements.txt
+
+# 3. Start the three services (in separate terminals with .venv activated):
+python detector_service/app.py    # Port 5001
+python grouping_service/app.py    # Port 5002
+python flask_app/app.py           # Port 5000
+```
+
+### 4. Open Web Dashboard
 Navigate to **[http://localhost:5000](http://localhost:5000)** in your browser.
 
 ---
