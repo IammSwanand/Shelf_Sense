@@ -1,148 +1,106 @@
-# Infilect AI Pipeline
+# Infilect Retail Shelf Analysis Pipeline
 
-AI-powered retail shelf analysis pipeline: detects products, groups them by brand, and returns annotated visualizations.
-
-> **Tip**: Check out [`docs/SETUP_GUIDE.md`](docs/SETUP_GUIDE.md) for a simple step-by-step setup and benchmarking guide.
-
----
-
-## Architecture
-
-Three independent microservices, orchestrated by a Flask frontend:
-
-```
-Browser -> Flask Orchestrator (5000)
-               | POST /detect
-          Detector Service (5001) <- YOLO11s (SKU-110K weights)
-               | raw boxes
-          filtering.py (in-process, rate-card removal)
-               | filtered boxes
-          Grouping Service (5002) <- DINOv2 + Multimodal Agglomerative Clustering
-               | group_ids
-          Visualization -> /outputs/ -> JSON -> Browser
-```
-
-See [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md), [`docs/API_SPEC.md`](docs/API_SPEC.md), and [`docs/WRITEUP.md`](docs/WRITEUP.md) for full design details.
+> **Documentation Index**:
+> - **Setup & Execution Guide**: [`docs/SETUP_GUIDE.md`](docs/SETUP_GUIDE.md) (Docker CPU/GPU modes, local setup, resource requirements)
+> - **API Specification**: [`docs/API_SPEC.md`](docs/API_SPEC.md) (Endpoint contracts, request/response JSON schemas)
+> - **System Architecture**: [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) (Microservice decomposition, data flow)
+> - **Technical Write-Up**: [`docs/WRITEUP.md`](docs/WRITEUP.md) (Design decisions, filtering strategy, benchmarks, scaling)
 
 ---
 
-## Prerequisites
+## Overview
 
-| Requirement | Version / Details |
-|---|---|
-| Docker Desktop | 4.x+ (includes docker-compose v2) |
-| Internet Access | Required on initial start to download DINOv2 weights (~80 MB) |
-| Python | 3.10+ *(Optional, for standalone benchmark scripts)* |
+A scalable microservice pipeline for automated retail shelf analysis:
+- **Product Detection**: Localizes all product instances on dense retail shelves using YOLO11s trained on SKU-110K.
+- **Rate-Card Filtering**: Automatically removes non-product clutter (shelf-edge price tags, rate cards) using an in-process heuristic filter.
+- **Brand Grouping**: Clusters products into brand families using a multimodal fusion of Dual-Scale DINOv2 vision embeddings and 3D HSV Color Histograms with Agglomerative Clustering.
+- **Interactive UI & Analytics**: Serves annotated visualizations, brand share-of-shelf percentage metrics, and JSON results.
 
 ---
 
-## Setup
-
-### 1. Place the model weights
+## System Architecture
 
 ```
-detector_service/weights/sku110k-yolo11-s640.pt
+┌─────────────────────────────────────────────────────────────┐
+│                   Flask Orchestrator & UI                   │
+│                 (Port 5000: Web Dashboard)                  │
+└──────────────────────────────┬──────────────────────────────┘
+                               │
+               (1) POST /detect│ (3) Filtered Boxes
+                   (Raw Image) │     + POST /group
+                               ▼
+┌──────────────────────────────┐     ┌──────────────────────────────┐
+│       Detector Service       │     │       Grouping Service       │
+│    (YOLO11s-640, SKU-110K)   │     │ (Dual-Scale DINOv2 + 3D HSV  │
+│          Port 5001           │     │   Agglomerative Clustering)  │
+└──────────────┬───────────────┘     │          Port 5002           │
+               │ Raw Detections      └──────────────┬───────────────┘
+               ▼                                    │
+┌──────────────────────────────┐                    │ Group IDs
+│   In-Process Filter Module   │                    │
+│ (Aspect Ratio + Color + Row) ├────────────────────┘
+└──────────────────────────────┘
 ```
 
-The weights file `sku110k-yolo11-s640.pt` is located in `detector_service/weights/`.
+---
 
-### 2. Copy the environment file (optional)
+## Quick Start
+
+### 1. Model Weights
+Verify that `sku110k-yolo11-s640.pt` exists in `detector_service/weights/` (downloaded automatically on first startup if missing).
+
+### 2. Run with Docker Compose (Recommended)
 
 ```bash
-cp .env.example .env
-```
+# Clone/navigate to project
+cd infilect_pipeline
 
-Edit `.env` to tune thresholds or timeouts. All values have sensible defaults.
-
----
-
-## Running with Docker Compose (Recommended)
-
-### Option A: Standard CPU Mode (Default: Lightweight ~1.5 GB Build)
-By default, Docker builds use official PyTorch CPU-only wheels for minimal image size and fast startup on any machine:
-
-```bash
-# Build images and start all 3 services in detached mode
+# Start all microservices (CPU Mode)
 docker compose up --build -d
 ```
 
-### Option B: GPU / CUDA Mode (Optional)
-If running on a machine with NVIDIA GPU and NVIDIA Container Toolkit:
+*(For GPU acceleration with CUDA 12.6, run: `TORCH_INDEX_URL=https://download.pytorch.org/whl/cu126 docker compose up --build -d`)*
 
-```bash
-# CUDA 12.6 is preferred & recommended:
-TORCH_INDEX_URL=https://download.pytorch.org/whl/cu126 docker compose up --build -d
-```
-*(Note: Evaluators can also pass other CUDA versions such as `cu124`, `cu121`, or `cu118` if required by their driver).*
+### 3. Open Web Dashboard
+Navigate to **[http://localhost:5000](http://localhost:5000)** in your browser.
 
 ---
 
-### Verify and Test
+## Core API Endpoint
 
-Services start in dependency order (detector + grouping must be healthy before Flask starts). The first run downloads DINOv2 weights (~80MB) for the grouping service.
+### `POST /api/analyze`
+Accepts a shelf image and returns detections, brand groups, and visualization URL.
 
-Open **[http://localhost:5000](http://localhost:5000)** in your browser to interact with the dashboard.
-
-#### Smoke test endpoints:
 ```bash
-# Health checks
-curl http://localhost:5000/health
-curl http://localhost:5001/health
-curl http://localhost:5002/health
-
-# End-to-end test (replace with any sample image)
-curl -X POST http://localhost:5000/api/analyze \
-  -F "image=@sample_images/128008.jpg" | python -m json.tool
+curl -X POST -F "image=@sample_images/128008.jpg" http://localhost:5000/api/analyze
 ```
 
-#### Stop services:
-```bash
-docker compose down
+**Example Response:**
+```json
+{
+  "image_id": "f71d7060ad03",
+  "width": 1080,
+  "height": 1920,
+  "num_products": 31,
+  "num_groups": 11,
+  "num_filtered_ratecards": 11,
+  "model_used": "sku110k-yolo11-s640",
+  "visualization_url": "/outputs/f71d7060ad03_viz.jpg",
+  "latency_ms": 3025.0,
+  "detections": [
+    {
+      "id": 0,
+      "box": [349.0, 1331.9, 507.8, 1429.0],
+      "det_score": 0.82,
+      "group_id": 10
+    }
+  ]
+}
 ```
 
 ---
 
-## Running locally (without Docker)
-
-Install all requirements once in the root directory:
-```bash
-pip install -r requirements.txt
-```
-
-Then open three terminal sessions:
-
-### Terminal 1: Detector Service (Port 5001)
-```bash
-python detector_service/app.py
-```
-
-### Terminal 2: Grouping Service (Port 5002)
-```bash
-python grouping_service/app.py
-```
-
-### Terminal 3: Flask Orchestrator (Port 5000)
-```bash
-python flask_app/app.py
-```
-
-Open **[http://localhost:5000](http://localhost:5000)** in your browser.
-
----
-
-## Batch test (all 20 sample images)
-
-With the stack running:
-
-```bash
-python scripts/run_all_samples.py
-```
-
-Prints a summary table and saves `scripts/batch_results.csv`.
-
----
-
-## Project structure
+## Project Structure
 
 ```
 infilect_pipeline/
@@ -150,59 +108,14 @@ infilect_pipeline/
 ├── .env.example
 ├── .dockerignore
 ├── README.md
-├── flask_app/
-│   ├── app.py              <- pipeline orchestrator
-│   ├── filtering.py        <- rate-card filtering (Stages A/B/C)
-│   ├── templates/index.html
-│   ├── static/style.css
-│   ├── requirements.txt
-│   └── Dockerfile
-├── detector_service/
-│   ├── app.py              <- YOLO11-s640 SKU-110K detector
-│   ├── weights/sku110k-yolo11-s640.pt <- SKU-110K detector weights
-│   ├── requirements.txt
-│   └── Dockerfile
-├── grouping_service/
-│   ├── app.py              <- DINOv2 crop-embed + Multimodal Agglomerative Linkage
-│   ├── requirements.txt
-│   └── Dockerfile
-├── scripts/
-│   └── run_all_samples.py
-├── sample_images/          <- 20 provided shelf images
-├── outputs/                <- saved visualizations (runtime)
+├── flask_app/              <- Web UI, API orchestrator, rate-card filtering
+├── detector_service/       <- YOLO11s SKU-110K detection microservice
+├── grouping_service/       <- DINOv2 + HSV Multimodal clustering microservice
+├── sample_images/          <- 20 retail shelf test images
+├── outputs/                <- Saved visual output images
 └── docs/
     ├── SETUP_GUIDE.md      <- Setup and execution manual
-    ├── ARCHITECTURE.md
-    ├── API_SPEC.md
-    └── WRITEUP.md
+    ├── API_SPEC.md         <- Complete API specification
+    ├── ARCHITECTURE.md     <- End-to-end architecture breakdown
+    └── WRITEUP.md          <- Technical write-up and evaluation
 ```
-
----
-
-## API
-
-See [`docs/API_SPEC.md`](docs/API_SPEC.md) and [`docs/SETUP_GUIDE.md`](docs/SETUP_GUIDE.md) for the full contract. Quick reference:
-
-| Endpoint | Method | Description |
-|---|---|---|
-| `/` | GET | Interactive Web Dashboard |
-| `/health` | GET | `{"status":"ok"}` |
-| `/api/analyze` | POST | Full pipeline: returns JSON + viz URL |
-| `/outputs/<file>` | GET | Serves saved visualization image |
-
----
-
-## Configuration
-
-All thresholds are env-configurable: see `.env.example` for the full list. Key ones:
-
-| Variable | Default | Effect |
-|---|---|---|
-| `TORCH_INDEX_URL` | `https://download.pytorch.org/whl/cpu` | PyTorch wheel index (`cu126` for CUDA GPU) |
-| `DEVICE` | `auto` | Auto-detects GPU if available, else falls back to CPU |
-| `DET_CONF_THRESHOLD` | `0.25` | YOLO detection confidence cutoff |
-| `DET_IOU_THRESHOLD` | `0.45` | YOLO NMS IoU cutoff |
-| `CLUSTER_THRESHOLD` | `auto` | Self-calibrating distance threshold for Agglomerative Linkage |
-| `DINO_WEIGHT` | `0.70` | Weight for DINOv2 visual similarity |
-| `COLOR_WEIGHT` | `0.30` | Weight for 3D HSV color similarity |
-| `RATECARD_MAX_ASPECT`| `2.5` | Rate-card geometry aspect ratio filter |
