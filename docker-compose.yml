@@ -7,7 +7,6 @@ services:
       dockerfile: Dockerfile
       args:
         TORCH_INDEX_URL: ${TORCH_INDEX_URL:-https://download.pytorch.org/whl/cpu}
-    container_name: infilect_detector
     environment:
       - DETECTOR_WEIGHTS_PATH=/app/weights/best.pt
       - DET_CONF_THRESHOLD=${DET_CONF_THRESHOLD:-0.25}
@@ -19,8 +18,8 @@ services:
       # Mount weights read-only  weights remain local, not baked into the image
       - ./detector_service/weights:/app/weights:ro
       - ./detector_service/app.py:/app/app.py
-    ports:
-      - "5001:5001"
+    expose:
+      - "5001"
     healthcheck:
       test: ["CMD", "python", "-c",
              "import urllib.request; urllib.request.urlopen('http://localhost:5001/health')"]
@@ -37,7 +36,6 @@ services:
       dockerfile: Dockerfile
       args:
         TORCH_INDEX_URL: ${TORCH_INDEX_URL:-https://download.pytorch.org/whl/cpu}
-    container_name: infilect_grouping
     environment:
       - CLUSTER_THRESHOLD=${CLUSTER_THRESHOLD:-auto}
       - DINO_WEIGHT=${DINO_WEIGHT:-0.70}
@@ -46,9 +44,8 @@ services:
       - PORT=5002
     volumes:
       - ./grouping_service/app.py:/app/app.py
-    ports:
-      # Exposed for debug/smoke-testing only
-      - "5002:5002"
+    expose:
+      - "5002"
     healthcheck:
       test: ["CMD", "python", "-c",
              "import urllib.request; urllib.request.urlopen('http://localhost:5002/health')"]
@@ -63,7 +60,7 @@ services:
     build:
       context: ./flask_app
       dockerfile: Dockerfile
-    container_name: infilect_flask
+    container_name: flask_app
     environment:
       - DETECTOR_URL=http://detector:5001
       - GROUPING_URL=http://grouping:5002
@@ -95,3 +92,4 @@ services:
 volumes:
   outputs_vol:
     driver: local
+
