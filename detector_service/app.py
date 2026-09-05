@@ -77,11 +77,10 @@ def _download_weights_if_needed(target_path: str) -> str:
     if os.path.exists(target_path) and os.path.getsize(target_path) > 1000:
         return target_path
 
-    download_url = os.environ.get("WEIGHTS_DOWNLOAD_URL")
-    if not download_url:
-        return target_path
+    default_url = "https://huggingface.co/chistopat/sku110k-yolo11-object-detector/resolve/main/weights/sku110k-yolo11-s640.pt"
+    download_url = os.environ.get("WEIGHTS_DOWNLOAD_URL", "").strip() or default_url
 
-    log.info(f"Weights file not found at '{target_path}'. Auto-downloading from {download_url} ...")
+    log.info(f"Weights file not found at '{target_path}'. Auto-downloading from Hugging Face ({download_url}) ...")
     os.makedirs(os.path.dirname(os.path.abspath(target_path)), exist_ok=True)
     temp_path = f"{target_path}.tmp"
     
