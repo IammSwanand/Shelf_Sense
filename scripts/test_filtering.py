@@ -1,24 +1,27 @@
 r"""
 Quick smoke test for filtering.py.
-Run from: d:\Infilect\infilect_pipeline\
-Usage: .venv\Scripts\python scripts\test_filtering.py
+Run from: infilect_pipeline/
+Usage: python scripts/test_filtering.py
 """
 import sys, os, base64, json
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'flask_app'))
+from pathlib import Path
+
+ROOT_DIR = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(ROOT_DIR / "flask_app"))
 
 import requests
 from PIL import Image, ImageDraw
 from filtering import remove_rate_cards
 
-SAMPLE = r"d:\Infilect\infilect_pipeline\sample_images\128008.jpg"
-DETECTOR_URL = "http://localhost:5001"
-OUT_DIR = r"d:\Infilect\infilect_pipeline\outputs"
+SAMPLE = Path(os.environ.get("SAMPLE_IMAGE", ROOT_DIR / "sample_images" / "128008.jpg"))
+DETECTOR_URL = os.environ.get("DETECTOR_URL", "http://localhost:5001")
+OUT_DIR = Path(os.environ.get("OUTPUTS_DIR", ROOT_DIR / "outputs"))
 
-os.makedirs(OUT_DIR, exist_ok=True)
+OUT_DIR.mkdir(parents=True, exist_ok=True)
 os.environ["RATECARD_DEBUG"] = "true"
 
 # 1. Get raw detections from the live detector
-print(f"[1] Sending {os.path.basename(SAMPLE)} to detector...")
+print(f"[1] Sending {SAMPLE.name} to detector at {DETECTOR_URL}...")
 img_b64 = base64.b64encode(open(SAMPLE, "rb").read()).decode()
 resp = requests.post(f"{DETECTOR_URL}/detect", json={"image_base64": img_b64}, timeout=60)
 resp.raise_for_status()

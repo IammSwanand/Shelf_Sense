@@ -21,9 +21,10 @@ from pathlib import Path
 
 import requests
 
+ROOT_DIR    = Path(__file__).resolve().parent.parent
 BASE_URL    = os.environ.get("BASE_URL",    "http://localhost:5000")
-SAMPLES_DIR = Path(os.environ.get("SAMPLES_DIR", "./sample_images"))
-OUTPUT_CSV  = Path(os.environ.get("OUTPUT_CSV",  "./scripts/batch_results.csv"))
+SAMPLES_DIR = Path(os.environ.get("SAMPLES_DIR", ROOT_DIR / "sample_images"))
+OUTPUT_CSV  = Path(os.environ.get("OUTPUT_CSV",  ROOT_DIR / "scripts" / "batch_results.csv"))
 
 EXTS = {".jpg", ".jpeg", ".png", ".webp"}
 
