@@ -110,9 +110,9 @@ def _crop_with_padding(image: Image.Image, box: list[float]) -> Image.Image:
 def _crop_label_roi(image: Image.Image, box: list[float]) -> Image.Image:
     """
     Crop the primary label / central artwork ROI of the product.
-    Adapts based on aspect ratio:
-      - Tall bottles (aspect >= 2.0): crops body/label, omitting neck/cap & base
-      - Pouches / boxes (aspect < 2.0): preserves full branded front face
+    Adapts based on packaging morphology:
+      - Tall bottles (aspect >= 2.0): crops label body, omitting neck/cap & base
+      - Pouches, boxes, cans (aspect < 2.0): preserves full branded front face
     """
     w, h = image.size
     x1, y1, x2, y2 = box
@@ -121,21 +121,16 @@ def _crop_label_roi(image: Image.Image, box: list[float]) -> Image.Image:
     aspect = bh / max(1.0, bw)
 
     if aspect >= 2.0:
-        # Tall bottle (e.g. 750ml wine, whiskey) -> isolate label body
+        # Tall bottles (e.g. 750ml wine, whiskey) -> isolate label body
         lx1 = max(0, x1 + 0.08 * bw)
-        ly1 = max(0, y1 + 0.30 * bh)
+        ly1 = max(0, y1 + 0.28 * bh)
         lx2 = min(w, x2 - 0.08 * bw)
         ly2 = min(h, y2 - 0.12 * bh)
-    else:
-        # Pouch, box, can -> keep full branded front face
-        lx1 = max(0, x1 + 0.03 * bw)
-        ly1 = max(0, y1 + 0.04 * bh)
-        lx2 = min(w, x2 - 0.03 * bw)
-        ly2 = min(h, y2 - 0.04 * bh)
+        if lx2 > lx1 and ly2 > ly1:
+            return image.crop((lx1, ly1, lx2, ly2))
 
-    if lx2 <= lx1 or ly2 <= ly1:
-        return _crop_with_padding(image, box)
-    return image.crop((lx1, ly1, lx2, ly2))
+    # Pouches, boxes, cans -> full branded face
+    return _crop_with_padding(image, box)
 
 
 def _embed_crops(crops: list[Image.Image]) -> np.ndarray:
@@ -187,7 +182,7 @@ def _extract_color_histograms(crops: list[Image.Image], h_bins: int = 8, s_bins:
 def _compute_adaptive_threshold(
     dist_matrix: np.ndarray,
     min_thresh: float = 0.22,
-    max_thresh: float = 0.348,
+    max_thresh: float = 0.36,
 ) -> float:
     """
     Dynamically self-calibrates an optimal clustering distance threshold for any
@@ -285,8 +280,8 @@ def _cluster_multimodal(
     d_color = np.clip(d_color, 0.0, 2.0)
 
     # Multi-scale distance fusion:
-    # 45% Label ROI (fine artwork/text) + 35% Full Silhouette (form factor) + 20% Color (palette)
-    dist_matrix = (0.45 * d_label) + (0.35 * d_full) + (0.20 * d_color)
+    # 35% Label ROI + 35% Full Silhouette + 30% Color Palette
+    dist_matrix = (0.35 * d_label) + (0.35 * d_full) + (0.30 * d_color)
 
     # Determine threshold (auto-adaptive or fixed)
     raw_thresh = threshold if threshold is not None else os.environ.get("CLUSTER_THRESHOLD", "auto")
@@ -354,8 +349,8 @@ def group():
         full_embeddings  = _embed_crops(full_crops)
         label_embeddings = _embed_crops(label_crops)
 
-        # 3. Extract 3D HSV Color Histograms on the distinctive label region
-        color_features = _extract_color_histograms(label_crops)
+        # 3. Extract 3D HSV Color Histograms on the full branded region
+        color_features = _extract_color_histograms(full_crops)
 
         # 4. Cluster multi-scale multimodal features → group_ids + calibrated threshold
         group_ids, calibrated_thresh = _cluster_multimodal(
