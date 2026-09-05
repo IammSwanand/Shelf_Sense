@@ -1,5 +1,7 @@
 # Infilect Retail Shelf Analysis Pipeline
 
+> **Tip**: Press `Ctrl + Shift + V` (or `Cmd + Shift + V` on macOS) to open the rendered Markdown Preview in your IDE.
+
 > **Documentation Index**:
 > - **Setup & Execution Guide**: [`docs/SETUP_GUIDE.md`](docs/SETUP_GUIDE.md) (Docker CPU/GPU modes, local setup, resource requirements)
 > - **API Specification**: [`docs/API_SPEC.md`](docs/API_SPEC.md) (Endpoint contracts, request/response JSON schemas)
