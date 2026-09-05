@@ -30,16 +30,19 @@ from PIL import Image, ImageDraw, ImageFont
 from filtering import remove_rate_cards
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
-log = logging.getLogger(__name__)
-
-app = Flask(__name__)
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+app = Flask(
+    __name__,
+    template_folder=os.path.join(BASE_DIR, "templates"),
+    static_folder=os.path.join(BASE_DIR, "static"),
+)
 
 #  Config 
 DETECTOR_URL       = os.environ.get("DETECTOR_URL",       "http://localhost:5001")
 GROUPING_URL       = os.environ.get("GROUPING_URL",       "http://localhost:5002")
 DOWNSTREAM_TIMEOUT = int(os.environ.get("DOWNSTREAM_TIMEOUT", "60"))
 PORT               = int(os.environ.get("PORT", "5000"))
-OUTPUTS_DIR        = Path(os.environ.get("OUTPUTS_DIR",  "/app/outputs"))
+OUTPUTS_DIR        = Path(os.environ.get("OUTPUTS_DIR", os.path.join(os.path.dirname(__file__), "..", "outputs")))
 OUTPUTS_DIR.mkdir(parents=True, exist_ok=True)
 
 #  Colour palette (high-contrast vibrant colors per brand group) 

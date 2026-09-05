@@ -1,0 +1,22 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# Infilect Retail Shelf Analyzer Pipeline - Unified Root Requirements
+# Install all dependencies at once for local multi-service execution:
+#   pip install -r requirements.txt
+# ─────────────────────────────────────────────────────────────────────────────
+
+# Web Framework & Microservice Networking
+flask>=2.3,<4.0
+requests>=2.31
+gunicorn>=21.0
+
+# Computer Vision & Image Processing
+Pillow>=10.0
+opencv-python-headless>=4.8
+numpy>=1.24
+
+# Deep Learning & AI Models (YOLO11, DINOv2 ViT, Agglomerative Clustering)
+torch>=2.1
+torchvision>=0.16
+ultralytics>=8.3
+transformers>=4.38
+scikit-learn>=1.4

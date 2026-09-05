@@ -6,8 +6,13 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libgl1 libglib2.0-0 libgomp1 \
     && rm -rf /var/lib/apt/lists/*
 
+# Configurable PyTorch wheel index: defaults to CPU-only (lightweight, ~1.5GB image).
+# Evaluators can pass e.g. TORCH_INDEX_URL=https://download.pytorch.org/whl/cu126 for CUDA support.
+ARG TORCH_INDEX_URL=https://download.pytorch.org/whl/cpu
+
 COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+RUN pip install --no-cache-dir torch torchvision --index-url ${TORCH_INDEX_URL} \
+    && pip install --no-cache-dir -r requirements.txt
 
 COPY . .
 

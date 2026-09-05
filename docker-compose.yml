@@ -5,6 +5,8 @@ services:
     build:
       context: ./detector_service
       dockerfile: Dockerfile
+      args:
+        TORCH_INDEX_URL: ${TORCH_INDEX_URL:-https://download.pytorch.org/whl/cpu}
     container_name: infilect_detector
     environment:
       - DETECTOR_WEIGHTS_PATH=/app/weights/best.pt
@@ -33,6 +35,8 @@ services:
     build:
       context: ./grouping_service
       dockerfile: Dockerfile
+      args:
+        TORCH_INDEX_URL: ${TORCH_INDEX_URL:-https://download.pytorch.org/whl/cpu}
     container_name: infilect_grouping
     environment:
       - CLUSTER_THRESHOLD=${CLUSTER_THRESHOLD:-auto}
