@@ -155,7 +155,7 @@ def _extract_color_histograms(crops: list[Image.Image], h_bins: int = 8, s_bins:
 
 def _compute_adaptive_threshold(
     dist_matrix: np.ndarray,
-    min_thresh: float = 0.16,
+    min_thresh: float = 0.20,
     max_thresh: float = 0.38,
 ) -> float:
     """
@@ -165,9 +165,9 @@ def _compute_adaptive_threshold(
     """
     n = dist_matrix.shape[0]
     if n <= 1:
-        return 0.30
+        return 0.35
     if n == 2:
-        return float(np.clip(dist_matrix[0, 1] * 0.9, min_thresh, max_thresh))
+        return float(np.clip(dist_matrix[0, 1] * 0.95, min_thresh, max_thresh))
 
     # Mask diagonal to find nearest neighbor distances
     D = dist_matrix.copy()
@@ -175,18 +175,18 @@ def _compute_adaptive_threshold(
 
     # 1. Intra-cluster nearest-neighbor distribution
     min_dists = np.min(D, axis=1)
-    # The 75th percentile of nearest neighbors captures intra-brand variance (facings + glare)
-    q75 = float(np.percentile(min_dists, 75))
-    knn_estimate = q75 * 1.35
+    # The 85th percentile of nearest neighbors captures intra-brand variance across edge shadows & angles
+    q85 = float(np.percentile(min_dists, 85))
+    knn_estimate = q85 * 1.46
 
     # 2. Otsu valley threshold on pairwise distances
     triu_idx = np.triu_indices(n, k=1)
     pairwise = dist_matrix[triu_idx]
-    valid_pairwise = pairwise[pairwise <= 0.65]
+    valid_pairwise = pairwise[pairwise <= 0.70]
 
-    otsu_estimate = 0.30
+    otsu_estimate = 0.35
     if len(valid_pairwise) >= 10:
-        hist, bin_edges = np.histogram(valid_pairwise, bins=60, range=(0.0, 0.65))
+        hist, bin_edges = np.histogram(valid_pairwise, bins=60, range=(0.0, 0.70))
         bin_centers = (bin_edges[:-1] + bin_edges[1:]) / 2.0
         total = len(valid_pairwise)
         current_max = 0.0
@@ -209,8 +209,8 @@ def _compute_adaptive_threshold(
                 current_max = var_between
                 otsu_estimate = float(bin_centers[i])
 
-    # Blend the nearest-neighbor estimate and Otsu boundary
-    adaptive_thresh = 0.55 * knn_estimate + 0.45 * otsu_estimate
+    # Blend the 85th percentile nearest-neighbor estimate and Otsu boundary
+    adaptive_thresh = 0.60 * knn_estimate + 0.40 * otsu_estimate
     calibrated = float(np.clip(adaptive_thresh, min_thresh, max_thresh))
     return round(calibrated, 3)
 
