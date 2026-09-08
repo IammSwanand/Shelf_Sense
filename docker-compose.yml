@@ -1,3 +1,4 @@
+# ShelfSense Microservices Suite - Docker Compose
 services:
 
   #  Detector Service (YOLO11-s640 SKU-110K) 

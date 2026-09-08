@@ -1,4 +1,4 @@
-# Infilect AI Pipeline - End-to-End Architecture
+# ShelfSense - End-to-End System Architecture
 
 > **Tip**: Press `Ctrl + Shift + V` (or `Cmd + Shift + V` on macOS) to open the rendered Markdown Preview in your IDE.
 
@@ -6,11 +6,11 @@
 
 The system employs a decoupled, containerized microservice architecture:
 
-![Infilect Architecture Diagram](assets/architecture_diagram.png)
+![System Architecture Diagram](assets/architecture_diagram.png)
 
 ### 1.1 End-to-End Execution Flow
 
-![Infilect High-Level Execution Flow](assets/pipeline_flow_diagram.png)
+![High-Level Execution Flow](assets/pipeline_flow_diagram.png)
 
 ---
 

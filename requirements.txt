@@ -1,8 +1,5 @@
-# ─────────────────────────────────────────────────────────────────────────────
-# Infilect Retail Shelf Analyzer Pipeline - Unified Root Requirements
-# Install all dependencies at once for local multi-service execution:
-#   pip install -r requirements.txt
-# ─────────────────────────────────────────────────────────────────────────────
+# ShelfSense: Retail Shelf Product Detection & Brand Grouping Pipeline
+# Install all dependencies at once: pip install -r requirements.txt
 
 # Web Framework & Microservice Networking
 flask>=2.3,<4.0

@@ -1,5 +1,5 @@
 """
-Grouping Service  Flask microservice that assigns brand group IDs
+Grouping Service: ShelfSense microservice that assigns brand group IDs
 to detected product crops using DINOv2 embeddings + HSV Color Histograms
 fused into an Agglomerative Clustering (Average Linkage) model.
 

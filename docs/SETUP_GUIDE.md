@@ -1,8 +1,8 @@
-# Setup & Execution Guide
+# ShelfSense - Setup & Execution Guide
 
 > **Tip**: Press `Ctrl + Shift + V` (or `Cmd + Shift + V` on macOS) to open the rendered Markdown Preview in your IDE.
 
-This guide provides simple step-by-step instructions to set up and run the **Infilect Retail Shelf Analyzer Pipeline** using either Docker or direct Terminal execution.
+This guide provides simple step-by-step instructions to set up and run the **ShelfSense Retail Shelf Analyzer Pipeline** using either Docker or direct Terminal execution.
 
 ---
 
@@ -39,6 +39,10 @@ TORCH_INDEX_URL=https://download.pytorch.org/whl/cu126 docker compose up --build
 ```powershell
 $env:TORCH_INDEX_URL="https://download.pytorch.org/whl/cu126"; docker compose up --build -d
 ```
+
+### 1.3 Access the Web Dashboard
+Once the containers are running, open your web browser and visit:
+**[http://localhost:5000](http://localhost:5000)**
 
 *To stop Docker containers:*
 ```bash
@@ -107,7 +111,7 @@ python flask_app/app.py
 
 ### 1. Interactive Web Dashboard
 Open your browser and navigate to:
-👉 **[http://localhost:5000](http://localhost:5000)**
+**[http://localhost:5000](http://localhost:5000)**
 
 Upload any shelf photograph to view real-time stage progress, color-coded product grouping visualization, brand share-of-shelf breakdown, and raw JSON.
 

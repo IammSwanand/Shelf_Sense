@@ -1,18 +1,11 @@
 """
-Flask Orchestrator  main entrypoint for the Infilect AI pipeline.
+Flask Orchestrator: Main entrypoint for the ShelfSense Retail Shelf AI pipeline.
 
 Routes:
   GET  /               HTML upload UI
   GET  /health         {"status": "ok"}
-  POST /api/analyze    full pipeline: detect  filter  group  visualize
-  GET  /outputs/<fn>   serve saved visualization images
-
-Environment variables:
-  DETECTOR_URL        URL of the detector service  (default: http://localhost:5001)
-  GROUPING_URL        URL of the grouping service  (default: http://localhost:5002)
-  DOWNSTREAM_TIMEOUT  Seconds before upstream call times out (default: 60)
-  PORT                Port to listen on (default: 5000)
-  OUTPUTS_DIR         Directory to save visualizations (default: /app/outputs)
+  POST /api/analyze    Full pipeline: detect, filter, group, visualize
+  GET  /outputs/<fn>   Serve saved visualization images
 """
 
 import os

@@ -1,5 +1,5 @@
 """
-scripts/run_all_samples.py
+scripts/run_all_samples.py - ShelfSense Batch Processing Script
 
 Batch test: loops over all images in test_images/, POSTs each to
 /api/analyze, and prints a summary table to stdout + saves a CSV.

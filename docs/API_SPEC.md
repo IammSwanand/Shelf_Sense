@@ -1,4 +1,4 @@
-# API Specification
+# ShelfSense - API Specification
 
 > **Tip**: Press `Ctrl + Shift + V` (or `Cmd + Shift + V` on macOS) to open the rendered Markdown Preview in your IDE.
 

@@ -8,7 +8,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
 # Configurable PyTorch wheel index: defaults to CPU-only (lightweight, ~1.5GB image).
-# Evaluators can pass e.g. TORCH_INDEX_URL=https://download.pytorch.org/whl/cu126 for CUDA support.
+# Set TORCH_INDEX_URL=https://download.pytorch.org/whl/cu126 for CUDA GPU support.
 ARG TORCH_INDEX_URL=https://download.pytorch.org/whl/cpu
 
 COPY requirements.txt .

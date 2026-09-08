@@ -1,4 +1,4 @@
-# Infilect AI Pipeline - Technical Write-Up
+# ShelfSense - Technical Write-Up & System Design
 
 > **Tip**: Press `Ctrl + Shift + V` (or `Cmd + Shift + V` on macOS) to open the rendered Markdown Preview in your IDE.
 
@@ -18,7 +18,7 @@ Given a retail shelf photograph, the pipeline must:
 
 The pipeline consists of three containerized microservices:
 
-![Infilect Pipeline Architecture](assets/architecture_diagram.png)
+![Pipeline Architecture](assets/architecture_diagram.png)
 
 | Microservice | Technology | Core Responsibility |
 |---|---|---|
@@ -118,7 +118,7 @@ This section provides a clear, high-level summary of the engineering decisions, 
 
 ### 10.1 The End-to-End Pipeline in 6 Simple Steps
 
-![Infilect End-to-End Execution Flow](assets/pipeline_flow_diagram.png)
+![End-to-End Execution Flow](assets/pipeline_flow_diagram.png)
 
 1. **YOLO11s Object Detection**: Generates raw bounding boxes with high recall using SKU-110K weights (`sku110k-yolo11-s640.pt`).
 2. **Tri-Signal Rate-Card Filter**: In-process heuristic module discards price tags in $<5\text{ ms}$ (Geometry + Color + Row Context).

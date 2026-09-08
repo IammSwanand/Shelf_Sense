@@ -48,6 +48,3 @@ Thumbs.db
 
 # HuggingFace cache (auto-downloaded at runtime)
 .cache/
-
-# Documentation
-docs/

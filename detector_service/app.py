@@ -1,5 +1,5 @@
 """
-Detector Service: Flask microservice wrapping YOLO11-s640 (SKU-110K weights).
+Detector Service: ShelfSense microservice wrapping YOLO11-s640 (SKU-110K weights).
 Accepts an image and returns product bounding boxes with confidence scores.
 """
 
