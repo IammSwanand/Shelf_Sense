@@ -105,14 +105,42 @@ curl -X POST -F "image=@test_images/128008.jpg" http://localhost:5000/api/analyz
 
 ---
 
+## Results
+
+### Example 1
+<p align="center">
+  <b>Before (Raw Image)</b> &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; <b>After (Detection & Clustering)</b><br/>
+  <img src="test_images/simple_22.jpg" width="45%" alt="Raw Retail Shelf">
+  &nbsp; &nbsp; &nbsp; &nbsp;
+  <img src="outputs/172ed7855a470_viz.jpg" width="45%" alt="ShelfSense Output">
+</p>
+
+* **Products Detected**: 22
+* **Brand Groups**: 6
+* **Processing Time**: ~800ms 
+
+### Example 2
+<p align="center">
+  <b>Before (Raw Image)</b> &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; <b>After (Detection & Clustering)</b><br/>
+  <img src="test_images/Vitaly.Okhonya_2020_11_26_10_33_39_1606376019160.jpg" width="45%" alt="Raw Retail Shelf">
+  &nbsp; &nbsp; &nbsp; &nbsp;
+  <img src="outputs/3e2bfd3075b3_viz.jpg" width="45%" alt="ShelfSense Output">
+</p>
+
+* **Products Detected**: 115
+* **Brand Groups**: 14
+* **Processing Time**: ~900ms
+
+---
+
 ## Performance Benchmarks
 
-| Metric | CPU Mode (Standard x86/ARM) | GPU Mode (NVIDIA CUDA 12.6) |
+| Metric | CPU Mode (Standard x86/ARM) | GPU Mode (NVIDIA RTX 4060 / CUDA 12.6) |
 |---|---|---|
-| **End-to-End Latency** | ~1.8 - 3.5 seconds per shelf image | ~250 - 450 ms per shelf image (~8x speedup) |
+| **End-to-End Latency** | ~6.0 - 8.5 seconds per shelf image | ~800 - 950 ms per shelf image (~8x speedup) |
 | **Detection Backbone** | YOLO11s (conf=0.25, iou=0.45, 640px) | YOLO11s (conf=0.25, iou=0.45, 640px) |
 | **Filter Overhead** | < 5 ms in-memory | < 5 ms in-memory |
-| **Embedding Extraction** | ~40 - 80 ms (50 crops, Dual-Scale DINOv2) | ~8 - 15 ms (50 crops, Dual-Scale DINOv2) |
+| **Embedding Extraction** | ~1.5 - 2.5 seconds (50 crops, DINOv2 + HSV) | ~120 - 150 ms (50 crops, DINOv2 + HSV) |
 | **Clustering Time** | < 5 ms (Average Linkage) | < 5 ms (Average Linkage) |
 
 ---
