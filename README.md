@@ -112,7 +112,7 @@ curl -X POST -F "image=@test_images/128008.jpg" http://localhost:5000/api/analyz
   <b>Before (Raw Image)</b> &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; <b>After (Detection & Clustering)</b><br/>
   <img src="test_images/simple_22.jpg" width="45%" alt="Raw Retail Shelf">
   &nbsp; &nbsp; &nbsp; &nbsp;
-  <img src="outputs/172ed7855a470_viz.jpg" width="45%" alt="ShelfSense Output">
+  <img src="test_images/simple_22_viz.jpg" width="45%" alt="ShelfSense Output">
 </p>
 
 * **Products Detected**: 22
@@ -124,7 +124,7 @@ curl -X POST -F "image=@test_images/128008.jpg" http://localhost:5000/api/analyz
   <b>Before (Raw Image)</b> &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; <b>After (Detection & Clustering)</b><br/>
   <img src="test_images/Vitaly.Okhonya_2020_11_26_10_33_39_1606376019160.jpg" width="45%" alt="Raw Retail Shelf">
   &nbsp; &nbsp; &nbsp; &nbsp;
-  <img src="outputs/3e2bfd3075b3_viz.jpg" width="45%" alt="ShelfSense Output">
+  <img src="test_images/Vitaly_viz.jpg" width="45%" alt="ShelfSense Output">
 </p>
 
 * **Products Detected**: 115
