@@ -21,6 +21,9 @@ Environment variables:
 """
 
 import os
+from dotenv import load_dotenv
+load_dotenv(os.path.join(os.path.dirname(__file__), "..", ".env"))
+
 import base64
 import logging
 from io import BytesIO
@@ -133,26 +136,38 @@ def _crop_label_roi(image: Image.Image, box: list[float]) -> Image.Image:
     return _crop_with_padding(image, box)
 
 
-def _embed_crops(crops: list[Image.Image]) -> np.ndarray:
+def _embed_crops(crops: list[Image.Image]) -> tuple[np.ndarray, dict]:
     """
     Run DINOv2 on a list of PIL crops.
     Returns float32 array of shape (N, 384), L2-normalised.
     """
-    import torch
-
+    import time
+    t0 = time.perf_counter()
+    # 1) Image Processor
     inputs = _dino_processor(images=crops, return_tensors="pt")
+    t1 = time.perf_counter()
     inputs = {k: v.to(DEVICE) for k, v in inputs.items()}
 
-    with torch.no_grad():
+    # 2) ViT Forward Pass (no gradients)
+    with _torch.no_grad():
         outputs = _dino_model(**inputs)
-
-    # CLS token  move back to CPU for numpy/sklearn
-    embeddings = outputs.last_hidden_state[:, 0, :].cpu().numpy().astype(np.float32)
+    t2 = time.perf_counter()
+    
+    # 3) Extract CLS token embeddings (shape: [N, embedding_dim])
+    embeddings = outputs.last_hidden_state[:, 0, :]
+    out_np = embeddings.cpu().numpy().astype(np.float32)
+    t3 = time.perf_counter()
+    
+    timing = {
+        "dino_processor_ms": round((t1 - t0)*1000, 1),
+        "dino_infer_ms": round((t2 - t1)*1000, 1),
+        "dino_post_ms": round((t3 - t2)*1000, 1)
+    }
 
     # L2 normalise so cosine distance = 1 - dot product
-    norms = np.linalg.norm(embeddings, axis=1, keepdims=True)
+    norms = np.linalg.norm(out_np, axis=1, keepdims=True)
     norms = np.where(norms == 0, 1.0, norms)
-    return embeddings / norms
+    return out_np / norms, timing
 
 
 def _extract_color_histograms(crops: list[Image.Image], h_bins: int = 8, s_bins: int = 8, v_bins: int = 8) -> np.ndarray:
@@ -346,11 +361,15 @@ def group():
         label_crops = [_crop_label_roi(image, det["box"]) for det in detections]
 
         # 2. Extract DINOv2 visual embeddings for both scales
-        full_embeddings  = _embed_crops(full_crops)
-        label_embeddings = _embed_crops(label_crops)
+        full_embeddings, dino_timing = _embed_crops(full_crops)
+        label_embeddings, _ = _embed_crops(label_crops)
 
         # 3. Extract 3D HSV Color Histograms on the full branded region
+        import time
+        t_v1 = time.perf_counter()
         color_features = _extract_color_histograms(full_crops)
+        t_v2 = time.perf_counter()
+        dino_timing["extract_color_ms"] = round((t_v2 - t_v1)*1000, 1)
 
         # 4. Cluster multi-scale multimodal features  group_ids + calibrated threshold
         group_ids, calibrated_thresh = _cluster_multimodal(
@@ -376,6 +395,7 @@ def group():
             "groups": groups,
             "num_groups": num_groups,
             "calibrated_threshold": calibrated_thresh,
+            "timing_internal": dino_timing,
         }), 200
 
     except Exception as e:
@@ -384,4 +404,6 @@ def group():
 
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=PORT, debug=False)
+    from waitress import serve
+    log.info("Starting Waitress production server on port 5002...")
+    serve(app, host="0.0.0.0", port=5002)

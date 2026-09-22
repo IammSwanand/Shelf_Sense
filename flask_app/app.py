@@ -9,18 +9,27 @@ Routes:
 """
 
 import os
+from dotenv import load_dotenv
+load_dotenv(os.path.join(os.path.dirname(__file__), "..", ".env"))
+
 import base64
 import hashlib
+import json
 import logging
 import time
+import datetime
 from io import BytesIO
 from pathlib import Path
 
-import requests as http
+import requests
 from flask import Flask, request, jsonify, render_template, send_from_directory
 from PIL import Image, ImageDraw, ImageFont
 
 from filtering import remove_rate_cards
+
+# Create a global session to reuse TCP connections and bypass Windows proxy autodiscovery (WPAD) delays
+session = requests.Session()
+session.trust_env = False
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 log = logging.getLogger(__name__)
@@ -32,8 +41,8 @@ app = Flask(
 )
 
 # Configuration
-DETECTOR_URL       = os.environ.get("DETECTOR_URL",       "http://localhost:5001")
-GROUPING_URL       = os.environ.get("GROUPING_URL",       "http://localhost:5002")
+DETECTOR_URL       = os.environ.get("DETECTOR_URL",       "http://127.0.0.1:5001")
+GROUPING_URL       = os.environ.get("GROUPING_URL",       "http://127.0.0.1:5002")
 DOWNSTREAM_TIMEOUT = int(os.environ.get("DOWNSTREAM_TIMEOUT", "60"))
 PORT               = int(os.environ.get("PORT", "5000"))
 OUTPUTS_DIR        = Path(os.environ.get("OUTPUTS_DIR", os.path.join(os.path.dirname(__file__), "..", "outputs")))
@@ -41,37 +50,15 @@ OUTPUTS_DIR.mkdir(parents=True, exist_ok=True)
 
 # High-contrast color palette for brand group labels
 _PALETTE = [
-    "#2563EB",  # Royal Blue
-    "#10B981",  # Emerald Green
-    "#F59E0B",  # Amber
-    "#EF4444",  # Red
-    "#8B5CF6",  # Purple
-    "#06B6D4",  # Cyan
-    "#EC4899",  # Pink
-    "#84CC16",  # Lime
-    "#F97316",  # Orange
-    "#6366F1",  # Indigo
-    "#14B8A6",  # Teal
-    "#D946EF",  # Fuchsia
-    "#3B82F6",  # Sky Blue
-    "#E11D48",  # Rose
-    "#EAB308",  # Yellow
-    "#64748B",  # Slate
+    "#2563EB", "#10B981", "#F59E0B", "#EF4444", "#8B5CF6", "#06B6D4", "#EC4899", "#84CC16", 
+    "#F97316", "#6366F1", "#14B8A6", "#D946EF", "#3B82F6", "#E11D48", "#EAB308", "#64748B",
 ]
-
 
 def _hex_to_rgb(hex_color: str) -> tuple[int, int, int]:
     h = hex_color.lstrip("#")
     return tuple(int(h[i:i+2], 16) for i in (0, 2, 4))
 
-
-#  Helpers 
 def _image_from_request() -> tuple[Image.Image, str, str]:
-    """
-    Extract the image from multipart or JSON body.
-    Returns (pil_image, image_base64, error_message).
-    error_message is "" on success.
-    """
     if request.content_type and "multipart/form-data" in request.content_type:
         f = request.files.get("image")
         if not f:
@@ -94,11 +81,9 @@ def _image_from_request() -> tuple[Image.Image, str, str]:
 
     return pil_img, image_base64, ""
 
-
 def _call_detector(image_base64: str) -> tuple[dict, str]:
-    """POST to detector service. Returns (response_dict, error_string)."""
     try:
-        resp = http.post(
+        resp = session.post(
             f"{DETECTOR_URL}/detect",
             json={"image_base64": image_base64},
             timeout=DOWNSTREAM_TIMEOUT,
@@ -106,14 +91,12 @@ def _call_detector(image_base64: str) -> tuple[dict, str]:
         if resp.status_code != 200:
             return {}, f"detector returned {resp.status_code}: {resp.text[:200]}"
         return resp.json(), ""
-    except http.exceptions.RequestException as e:
+    except requests.exceptions.RequestException as e:
         return {}, f"detector unreachable: {e}"
 
-
 def _call_grouping(image_base64: str, detections: list[dict]) -> tuple[dict, str]:
-    """POST to grouping service. Returns (response_dict, error_string)."""
     try:
-        resp = http.post(
+        resp = session.post(
             f"{GROUPING_URL}/group",
             json={"image_base64": image_base64, "detections": detections},
             timeout=DOWNSTREAM_TIMEOUT,
@@ -121,23 +104,11 @@ def _call_grouping(image_base64: str, detections: list[dict]) -> tuple[dict, str
         if resp.status_code != 200:
             return {}, f"grouping returned {resp.status_code}: {resp.text[:200]}"
         return resp.json(), ""
-    except http.exceptions.RequestException as e:
+    except requests.exceptions.RequestException as e:
         return {}, f"grouping unreachable: {e}"
 
-
-def _draw_visualization(
-    image: Image.Image,
-    groups: list[dict],
-    image_id: str,
-) -> str:
-    """
-    Draw clean, high-contrast bounding box outlines (one colour per brand group)
-    without opaque interior fills so products remain completely visible.
-    Saves the result as JPEG to OUTPUTS_DIR.
-    """
+def _draw_visualization(image: Image.Image, groups: list[dict], image_id: str) -> str:
     draw = ImageDraw.Draw(image)
-
-    # Adaptive stroke & font sizing based on image resolution
     img_w, img_h = image.size
     stroke = max(3, img_w // 350)
     font_size = max(18, img_w // 48)
@@ -154,12 +125,8 @@ def _draw_visualization(
         box = item["box"]
         color_hex = _PALETTE[gid % len(_PALETTE)]
         color_rgb = _hex_to_rgb(color_hex)
-
         x1, y1, x2, y2 = [int(round(v)) for v in box]
-
-        # Draw clean, crisp outline (NO interior fill so product is 100% visible)
         draw.rectangle([x1, y1, x2, y2], outline=color_rgb, width=stroke)
-
         label = f"Group {gid}"
         try:
             bbox = draw.textbbox((0, 0), label, font=font)
@@ -172,7 +139,6 @@ def _draw_visualization(
         badge_top = y1 - lh - (pad_y * 2)
         badge_bottom = y1
 
-        # Keep badge within image bounds
         if badge_top < 0:
             badge_top = y1
             badge_bottom = y1 + lh + (pad_y * 2)
@@ -189,62 +155,62 @@ def _draw_visualization(
     log.info(f"Visualization saved: {save_path}")
     return filename
 
-
-# Routes
 @app.route("/", methods=["GET"])
 def index():
     return render_template("index.html")
-
 
 @app.route("/health", methods=["GET"])
 def health():
     return jsonify({"status": "ok"}), 200
 
-
 @app.route("/outputs/<path:filename>", methods=["GET"])
 def serve_output(filename):
     return send_from_directory(str(OUTPUTS_DIR), filename)
-
 
 @app.route("/api/analyze", methods=["POST"])
 def analyze():
     t_start = time.perf_counter()
 
-    # Step 1: Decode input image
     pil_img, image_base64, err = _image_from_request()
     if err:
         return jsonify({"error": err}), 400
 
     width, height = pil_img.size
-    image_id = hashlib.md5(image_base64[:512].encode()).hexdigest()[:12]
+    base_hash = hashlib.md5(image_base64[:512].encode()).hexdigest()[:8]
+    image_id = f"{base_hash}_{int(time.time())}"
 
-    # Step 2: Run product detector
+    t_det_start = time.perf_counter()
     det_resp, err = _call_detector(image_base64)
+    t_det_ms = round((time.perf_counter() - t_det_start) * 1000, 1)
     if err:
         return jsonify({"error": f"detector service error: {err}"}), 502
 
     raw_detections = det_resp.get("detections", [])
     model_used     = det_resp.get("model_used", "unknown")
 
-    # Step 3: Filter rate cards and shelf tags
+    t_filt_start = time.perf_counter()
     kept, dropped = remove_rate_cards(pil_img, raw_detections)
+    t_filt_ms = round((time.perf_counter() - t_filt_start) * 1000, 1)
     num_filtered  = len(dropped)
 
-    # Step 4: Group filtered products by brand family
+    t_grp_start = time.perf_counter()
     if kept:
         grp_resp, err = _call_grouping(image_base64, kept)
         if err:
             return jsonify({"error": f"grouping service error: {err}"}), 502
         groups      = grp_resp.get("groups", [])
         num_groups  = grp_resp.get("num_groups", 0)
+        calibrated_threshold = grp_resp.get("calibrated_threshold", 0.0)
     else:
-        groups, num_groups = [], 0
+        grp_resp = {}
+        groups, num_groups, calibrated_threshold = [], 0, 0.0
+    t_grp_ms = round((time.perf_counter() - t_grp_start) * 1000, 1)
 
-    # Step 5: Render and save color-coded visualization
+    t_viz_start = time.perf_counter()
     viz_img  = pil_img.copy()
     viz_file = _draw_visualization(viz_img, groups, image_id)
+    t_viz_ms = round((time.perf_counter() - t_viz_start) * 1000, 1)
 
-    # Step 6: Assemble JSON response
     latency_ms = round((time.perf_counter() - t_start) * 1000, 1)
 
     detections_out = [
@@ -257,7 +223,7 @@ def analyze():
         for i, g in enumerate(groups)
     ]
 
-    return jsonify({
+    response_data = {
         "image_id":               image_id,
         "width":                  width,
         "height":                 height,
@@ -268,8 +234,33 @@ def analyze():
         "model_used":             model_used,
         "visualization_url":      f"/outputs/{viz_file}",
         "latency_ms":             latency_ms,
-    }), 200
+        "timing_breakdown_ms": {
+            "detector": t_det_ms,
+            "filtering": t_filt_ms,
+            "grouping": t_grp_ms,
+            "visualization": t_viz_ms,
+            "orchestrator_overhead": round(latency_ms - (t_det_ms + t_filt_ms + t_grp_ms + t_viz_ms), 1),
+            "detector_internal": det_resp.get("timing_internal", {}),
+            "grouping_internal": grp_resp.get("timing_internal", {}),
+        },
+        "config": {
+            "clustering_method": "Agglomerative Clustering (Average Linkage)",
+            "calibrated_threshold": calibrated_threshold,
+        },
+        "timestamp":              datetime.datetime.now(datetime.timezone.utc).isoformat(),
+    }
 
+    metadata_path = OUTPUTS_DIR / f"{image_id}_metadata.json"
+    try:
+        with open(metadata_path, "w") as f:
+            json.dump(response_data, f, indent=2)
+        log.info(f"Metadata saved: {metadata_path}")
+    except Exception as e:
+        log.error(f"Failed to save metadata: {e}")
+
+    return jsonify(response_data), 200
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=PORT, debug=False)
+    from waitress import serve
+    log.info("Starting Waitress production server on port 5000...")
+    serve(app, host="0.0.0.0", port=5000)

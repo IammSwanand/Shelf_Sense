@@ -4,6 +4,9 @@ Accepts an image and returns product bounding boxes with confidence scores.
 """
 
 import os
+from dotenv import load_dotenv
+load_dotenv(os.path.join(os.path.dirname(__file__), "..", ".env"))
+
 import base64
 import logging
 from io import BytesIO
@@ -118,11 +121,14 @@ def _load_model():
     log.info("YOLO11-s640 model loaded successfully.")
 
 
-def _run_yolo(image_base64: str) -> tuple[list[dict], int, int]:
+def _run_yolo(image_base64: str) -> tuple[list[dict], int, int, dict]:
     """Run YOLO inference; returns (detections, width, height)."""
+    import time
+    t_start = time.perf_counter()
     img_bytes = base64.b64decode(image_base64)
     pil_img = Image.open(BytesIO(img_bytes)).convert("RGB")
     width, height = pil_img.size
+    t_decode = time.perf_counter()
 
     results = _model.predict(
         source=pil_img,
@@ -132,6 +138,8 @@ def _run_yolo(image_base64: str) -> tuple[list[dict], int, int]:
         device=DEVICE,
         verbose=False,
     )
+    t_infer = time.perf_counter()
+
     result = results[0]
 
     detections = []
@@ -142,7 +150,15 @@ def _run_yolo(image_base64: str) -> tuple[list[dict], int, int]:
             "box":   [round(x1, 2), round(y1, 2), round(x2, 2), round(y2, 2)],
             "score": round(score, 4),
         })
-    return detections, width, height
+    t_post = time.perf_counter()
+
+    timing = {
+        "decode_ms": round((t_decode - t_start) * 1000, 1),
+        "infer_ms": round((t_infer - t_decode) * 1000, 1),
+        "post_ms": round((t_post - t_infer) * 1000, 1)
+    }
+
+    return detections, width, height, timing
 
 
 # Load at import time (gunicorn worker startup)
@@ -182,12 +198,13 @@ def detect():
         return jsonify({"error": f"Invalid image_base64: {e}"}), 400
 
     try:
-        detections, width, height = _run_yolo(image_base64)
+        detections, width, height, timing = _run_yolo(image_base64)
         return jsonify({
             "width":      width,
             "height":     height,
             "detections": detections,
             "model_used": _model_used,
+            "timing_internal": timing
         }), 200
 
     except Exception as e:
@@ -196,4 +213,6 @@ def detect():
 
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=PORT, debug=False)
+    from waitress import serve
+    log.info("Starting Waitress production server on port 5001...")
+    serve(app, host="0.0.0.0", port=5001)
